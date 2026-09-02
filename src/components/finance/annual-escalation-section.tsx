@@ -2,7 +2,7 @@
 
 import { useApp } from "@/lib/store/app-store";
 import { CollapsibleSection } from "@/components/shared/metric-card";
-import { DebouncedNumberInput } from "@/components/ui/debounced-input";
+import { SaveableAssumptionField, SaveableInlineNumber } from "@/components/finance/saveable-assumption-field";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CrudSelect } from "@/components/shared/crud-select";
@@ -85,11 +85,14 @@ export function AnnualEscalationSection() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label className="text-xs font-medium text-[#6B6560]">Forecast years</label>
-          <DebouncedNumberInput
+          <SaveableAssumptionField
+            label="Forecast years"
             value={forecast.forecastYears}
-            onCommit={(v) => updateForecast({ forecastYears: Math.min(10, Math.max(1, v)) })}
-            className="w-20"
+            onSave={(v) => updateForecast({ forecastYears: Math.min(10, Math.max(1, v)) })}
+            integer
+            min={1}
+            max={10}
+            inputClassName="w-20"
           />
           <span className="text-xs text-[#A39E98]">Operating years (months 1–12, 13–24, …)</span>
         </div>
@@ -145,9 +148,9 @@ export function AnnualEscalationSection() {
                       />
                       {rule.escalationType === "annual_pct" && (
                         <>
-                          <DebouncedNumberInput
+                          <SaveableInlineNumber
                             value={rule.annualPct ?? 0}
-                            onCommit={(v) => updateRule(rule.categoryId, { annualPct: v })}
+                            onSave={(v) => updateRule(rule.categoryId, { annualPct: v })}
                             className="w-16"
                           />
                           <span className="text-xs text-[#A39E98]">%/yr</span>
@@ -155,18 +158,19 @@ export function AnnualEscalationSection() {
                       )}
                       {rule.escalationType === "step_pct_interval" && (
                         <>
-                          <DebouncedNumberInput
+                          <SaveableInlineNumber
                             value={rule.stepPct ?? 0}
-                            onCommit={(v) => updateRule(rule.categoryId, { stepPct: v })}
+                            onSave={(v) => updateRule(rule.categoryId, { stepPct: v })}
                             className="w-16"
                           />
                           <span className="text-xs text-[#A39E98]">% every</span>
-                          <DebouncedNumberInput
+                          <SaveableInlineNumber
                             value={rule.stepIntervalMonths ?? 12}
-                            onCommit={(v) =>
+                            onSave={(v) =>
                               updateRule(rule.categoryId, { stepIntervalMonths: v })
                             }
                             className="w-16"
+                            integer
                           />
                           <span className="text-xs text-[#A39E98]">mo</span>
                         </>
@@ -174,10 +178,11 @@ export function AnnualEscalationSection() {
                     </div>
                   </td>
                   <td className="py-2 pr-4">
-                    <DebouncedNumberInput
+                    <SaveableInlineNumber
                       value={rule.firstEscalationMonth}
-                      onCommit={(v) => updateRule(rule.categoryId, { firstEscalationMonth: v })}
+                      onSave={(v) => updateRule(rule.categoryId, { firstEscalationMonth: v })}
                       className="w-16"
+                      integer
                     />
                   </td>
                   <td className="py-2 text-xs text-[#A39E98]">
@@ -217,9 +222,9 @@ export function AnnualEscalationSection() {
               return (
                 <div key={product.id} className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="min-w-[120px] text-[#6B6560]">{product.name}</span>
-                  <DebouncedNumberInput
+                  <SaveableInlineNumber
                     value={pct}
-                    onCommit={(v) => {
+                    onSave={(v) => {
                       const existing = forecast.productPriceGrowth.filter(
                         (g) => g.productId !== product.id
                       );

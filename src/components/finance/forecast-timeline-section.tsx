@@ -3,9 +3,8 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useApp } from "@/lib/store/app-store";
 import { CollapsibleSection } from "@/components/shared/metric-card";
-import { DebouncedNumberInput } from "@/components/ui/debounced-input";
+import { SaveableInlineNumber, SaveableTextAssumptionField } from "@/components/finance/saveable-assumption-field";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { resolveForecastSettings } from "@/lib/finance/engine/escalation";
 import type { ScenarioTimelinePhase } from "@/lib/finance/schemas";
 
@@ -97,11 +96,10 @@ export function ForecastTimelineSection() {
                 className="rounded-lg border border-[#E8E2D9] p-4 space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <Input
+                  <SaveableTextAssumptionField
                     value={phase.label}
-                    onChange={(e) => updatePhase(phase.id, { label: e.target.value })}
-                    className="font-medium"
-                    aria-label="Phase label"
+                    onSave={(label) => updatePhase(phase.id, { label })}
+                    inputClassName="font-medium min-w-[160px]"
                   />
                   <Button
                     type="button"
@@ -118,34 +116,40 @@ export function ForecastTimelineSection() {
                 <div className="flex flex-wrap gap-3 text-sm">
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     From month
-                    <DebouncedNumberInput
+                    <SaveableInlineNumber
                       value={phase.startMonth}
-                      onCommit={(v) => updatePhase(phase.id, { startMonth: Math.max(1, v) })}
+                      onSave={(v) => updatePhase(phase.id, { startMonth: Math.max(1, v) })}
                       className="w-16"
+                      integer
+                      min={1}
                     />
                   </label>
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     To month
-                    <DebouncedNumberInput
+                    <SaveableInlineNumber
                       value={phase.endMonth}
-                      onCommit={(v) => updatePhase(phase.id, { endMonth: Math.max(1, v) })}
+                      onSave={(v) => updatePhase(phase.id, { endMonth: Math.max(1, v) })}
                       className="w-16"
+                      integer
+                      min={1}
                     />
                   </label>
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     Reformers
-                    <DebouncedNumberInput
+                    <SaveableInlineNumber
                       value={Number(overrides.reformers ?? a.reformers)}
-                      onCommit={(v) => updatePhaseOverride(phase.id, "reformers", v)}
+                      onSave={(v) => updatePhaseOverride(phase.id, "reformers", v)}
                       className="w-16"
+                      integer
                     />
                   </label>
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     Classes/day
-                    <DebouncedNumberInput
+                    <SaveableInlineNumber
                       value={Number(overrides.classesPerDay ?? a.classesPerDay)}
-                      onCommit={(v) => updatePhaseOverride(phase.id, "classesPerDay", v)}
+                      onSave={(v) => updatePhaseOverride(phase.id, "classesPerDay", v)}
                       className="w-16"
+                      integer
                     />
                   </label>
                 </div>
