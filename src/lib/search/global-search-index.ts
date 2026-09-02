@@ -133,7 +133,7 @@ const APP_PAGES: PageEntry[] = [
     title: "Credit Health",
     href: "/math/access-products/credit-health",
     group: "Math",
-    keywords: ["credit health", "liability", "outstanding credits"],
+    keywords: ["credit health", "liability", "outstanding credits", "coverage ratio", "eligible coverage"],
   },
   {
     title: "Pricing",

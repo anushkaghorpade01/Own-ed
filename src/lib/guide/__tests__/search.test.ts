@@ -35,6 +35,11 @@ describe("Guide search", () => {
     expect(results.some((r) => r.section.id === "sales-client-target")).toBe(true);
   });
 
+  it("finds credit liability guide section", () => {
+    const results = searchGuide("credit liability");
+    expect(results.some((r) => r.section.id === "credit-liability")).toBe(true);
+  });
+
   it("finds profit views section", () => {
     const results = searchGuide("different profit");
     expect(results.some((r) => r.section.id === "profit-views")).toBe(true);
