@@ -23,7 +23,6 @@ export function defaultAppState(): AppState {
     decisions: createSampleDecisions(),
     questions: createSampleQuestions(),
     actions: createSampleActions(),
-    mathReviewItems: [],
     roadmapItems: createSampleRoadmapItems(),
     productConcepts: createSampleProductConcepts(),
     programmingItems: createSampleProgrammingItems(),

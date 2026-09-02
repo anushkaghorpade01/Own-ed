@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useFinanceModel } from "@/hooks/use-finance-model";
-import { SectionHeader, SampleBanner, MetricCard } from "@/components/shared/metric-card";
+import { SectionHeader, SampleBanner, MetricCard, MetricGrid, PageSection } from "@/components/shared/metric-card";
 import { formatINR } from "@/lib/format/currency";
 import { OPERATING_CASH_INFLOW_BASIS } from "@/lib/finance/cash-basis";
 import {
@@ -70,7 +70,7 @@ export default function CashFlowPage() {
         <p className="mt-1">{OPERATING_CASH_INFLOW_BASIS.explainer}</p>
       </div>
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <MetricGrid className="page-section">
         <MetricCard
           label="Initial investment to recover"
           value={formatINR(launch.paybackInvestmentBase)}
@@ -103,9 +103,9 @@ export default function CashFlowPage() {
           value={formatINR(month36Display.amount)}
           subtitle={`Month 36 · cumulative generated ${formatINR(health.month36CumulativeOperatingCash)}`}
         />
-      </div>
+      </MetricGrid>
 
-      <InvestmentRecoveryForecastCard chartVariant="line" className="mt-4" />
+      <InvestmentRecoveryForecastCard chartVariant="line" className="page-section" />
 
       <Card className="mt-6">
         <CardHeader>

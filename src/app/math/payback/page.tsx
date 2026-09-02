@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useFinanceModel } from "@/hooks/use-finance-model";
-import { SectionHeader, SampleBanner, MetricCard, BusinessInsightCard } from "@/components/shared/metric-card";
+import { SectionHeader, SampleBanner, MetricCard, MetricGrid, PageSection, BusinessInsightCard } from "@/components/shared/metric-card";
 import { explainPayback } from "@/lib/finance/business-insights";
 import { OPERATING_CASH_INFLOW_BASIS } from "@/lib/finance/cash-basis";
 import { formatINR, formatPercent } from "@/lib/format/currency";
@@ -34,11 +34,11 @@ export default function PaybackPage() {
         {OPERATING_CASH_INFLOW_BASIS.paybackCaveat}
       </div>
 
-      <div className="mb-8">
+      <PageSection spacing="major">
         <BusinessInsightCard {...paybackInsight} />
-      </div>
+      </PageSection>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <MetricGrid>
         <MetricCard
           label="Payback period"
           value={
@@ -69,9 +69,9 @@ export default function PaybackPage() {
           value={formatINR(pb.workingCapital)}
           subtitle="Included in hurdle; retained in bank"
         />
-      </div>
+      </MetricGrid>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      <MetricGrid columns={3} className="page-section">
         <MetricCard
           label="Recoverable deposits"
           value={formatINR(pb.recoverableDeposits)}
@@ -83,10 +83,10 @@ export default function PaybackPage() {
         />
         <MetricCard label="ROI @ 12 months" value={formatPercent(pb.roi12Months)} subtitle="Investment remaining ÷ base" />
         <MetricCard label="ROI @ 36 months" value={formatPercent(pb.roi36Months)} />
-      </div>
+      </MetricGrid>
 
       <InvestmentRecoveryForecastCard
-        className="mt-8"
+        className="page-section-major"
         chartVariant="area"
         description={`Month 0 = −${formatINR(launch.paybackInvestmentBase)} (full investment hurdle). Each month adds operating cash generated. Crosses zero when payback is reached${
           pb.paybackMonth ? ` — around month ${pb.paybackMonth}` : " — not within 36 months"

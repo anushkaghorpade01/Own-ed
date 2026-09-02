@@ -11,7 +11,6 @@ function normalizePayloadExtensions(
   extensions: LocalDbPayload["extensions"] | undefined
 ): LocalDbPayload["extensions"] {
   return {
-    mathReviewItems: extensions?.mathReviewItems ?? [],
     productConcepts: extensions?.productConcepts ?? [],
     programmingItems: extensions?.programmingItems ?? [],
     brandItems: extensions?.brandItems ?? [],
@@ -21,11 +20,10 @@ function normalizePayloadExtensions(
 }
 
 export function appStateToLegacy(state: AppState): LegacyAppState & {
-  mathReviewItems: AppState["mathReviewItems"];
   brandItems: AppState["brandItems"];
-    productConcepts: AppState["productConcepts"];
-    programmingItems: AppState["programmingItems"];
-    spaceImages: AppState["spaceImages"];
+  productConcepts: AppState["productConcepts"];
+  programmingItems: AppState["programmingItems"];
+  spaceImages: AppState["spaceImages"];
 } {
   const { undoStack: _u, ...rest } = state;
   return rest;
@@ -42,7 +40,6 @@ export function appStateToPayload(state: AppState): LocalDbPayload {
       // Preserve full brand/space in extensions; assets tab holds metadata refs
     },
     extensions: {
-      mathReviewItems: state.mathReviewItems,
       productConcepts: state.productConcepts,
       programmingItems: state.programmingItems,
       brandItems: state.brandItems,
@@ -62,7 +59,6 @@ export function payloadToAppState(payload: LocalDbPayload): AppState {
     decisions: legacy.decisions ?? [],
     questions: stripSampleQuestions(legacy.questions ?? []),
     actions: legacy.actions ?? [],
-    mathReviewItems: defaults.mathReviewItems ?? [],
     roadmapItems: legacy.roadmapItems ?? [],
     productConcepts: defaults.productConcepts ?? [],
     programmingItems: defaults.programmingItems ?? [],
@@ -92,7 +88,6 @@ export function countPayloadRecords(payload: LocalDbPayload): number {
     n.roadmap.length +
     n.library.length +
     n.assets.length +
-    ext.mathReviewItems.length +
     ext.productConcepts.length +
     ext.programmingItems.length +
     ext.brandItems.length +

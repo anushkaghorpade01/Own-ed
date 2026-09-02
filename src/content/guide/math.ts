@@ -336,16 +336,6 @@ export const mathSections: GuideSection[] = [
     ],
   },
   {
-    id: "math-review",
-    title: "Math Review",
-    category: "Math",
-    keywords: ["review", "ca", "accuracy", "bug", "verify", "accountant"],
-    body: [
-      "Track notes for you or your CA — flag areas that need verification, expected vs actual values, and fix status.",
-      "Does not change calculations; it is a review queue linked to Math pages.",
-    ],
-  },
-  {
     id: "actuals",
     title: "Actuals (post-launch)",
     category: "Math",

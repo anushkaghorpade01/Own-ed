@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store/app-store";
-import { SectionHeader, SampleBanner } from "@/components/shared/metric-card";
+import { SectionHeader, SampleBanner, MetricCard, MetricGrid } from "@/components/shared/metric-card";
 import { FinanceTable, FinanceTableRow } from "@/components/ui/finance-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -344,15 +344,6 @@ export default function SalesTargetPage() {
 
       <SalesPlanThreeStepExplainer />
 
-      <div className="mb-4 flex justify-end">
-        <Link
-          href="/math/review?area=sales_target&new=1"
-          className="text-body-sm text-[var(--text-secondary)] underline hover:text-[var(--text-primary)]"
-        >
-          Flag an issue for Math Review →
-        </Link>
-      </div>
-
       <section className="card-surface mb-4">
         <p className="text-label">Target monthly net profit</p>
         <div className="mt-2 flex flex-wrap items-end gap-4">
@@ -399,35 +390,25 @@ export default function SalesTargetPage() {
         </div>
       </section>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <div className="card-surface">
-          <MetricLabel
-            label={`Month ${targetMonth} forecast profit`}
-            tooltip={MONTH_FORECAST_PROFIT_TOOLTIP}
-            tooltipLabel={`About Month ${targetMonth} forecast profit`}
-          />
-          <p className="text-kpi mt-1">{formatINR(analysis.forecastProfit)}</p>
-          <p className="text-caption mt-1 text-[var(--text-muted)]">
-            From OWNED&apos;s forecast assumptions — not your manual sales plan.
-          </p>
-        </div>
-        <div className="card-surface">
-          <p className="text-label">Target monthly profit</p>
-          <p className="text-kpi mt-1">{formatINR(analysis.targetProfit)}</p>
-        </div>
-        <div className="card-surface">
-          <p className="text-label">
-            {analysis.profitSurplus.gt(0) ? "Surplus to target" : "Gap to target"}
-          </p>
-          <p className="text-kpi mt-1">
-            {analysis.profitSurplus.gt(0)
+      <MetricGrid columns={3} className="page-section">
+        <MetricCard
+          label={`Month ${targetMonth} forecast profit`}
+          value={formatINR(analysis.forecastProfit)}
+          subtitle="From OWNED's forecast assumptions — not your manual sales plan."
+          tooltip={MONTH_FORECAST_PROFIT_TOOLTIP}
+        />
+        <MetricCard label="Target monthly profit" value={formatINR(analysis.targetProfit)} />
+        <MetricCard
+          label={analysis.profitSurplus.gt(0) ? "Surplus to target" : "Gap to target"}
+          value={
+            analysis.profitSurplus.gt(0)
               ? formatINR(analysis.profitSurplus)
               : analysis.profitGap.lte(0)
                 ? "On target"
-                : formatINR(analysis.profitGap)}
-          </p>
-        </div>
-      </div>
+                : formatINR(analysis.profitGap)
+          }
+        />
+      </MetricGrid>
 
       <p className="text-caption mb-4 text-[var(--text-muted)]">
         <Link href={PROFIT_VIEWS_GUIDE_HREF} className="underline hover:text-[var(--text-primary)]">
@@ -443,7 +424,7 @@ export default function SalesTargetPage() {
                 label="Your sales plan"
                 tooltip={YOUR_SALES_PLAN_TOOLTIP}
                 tooltipLabel="Your sales plan"
-                className="text-label"
+                className="text-card-title"
               />
               <p className="text-caption mt-1 text-[var(--text-muted)]">{YOUR_SALES_PLAN_CAPTION}</p>
             </div>

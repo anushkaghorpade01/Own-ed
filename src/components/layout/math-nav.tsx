@@ -37,7 +37,6 @@ const MATH_NAV = [
   {
     group: "Track",
     items: [
-      { href: "/math/review", label: "Math Review" },
       { href: "/math/actuals", label: "Actuals" },
       { href: "/math/snapshots", label: "Snapshots" },
     ],

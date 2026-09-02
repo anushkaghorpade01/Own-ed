@@ -39,8 +39,8 @@ export function InfoTooltip({
           align="center"
           sideOffset={6}
           className={cn(
-            "z-50 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] px-3 py-2 text-left text-body-sm leading-snug text-[var(--text-secondary)] shadow-md whitespace-pre-line",
-            wide ? "max-w-[22rem]" : "max-w-[20rem]"
+            "z-50 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] px-[var(--tooltip-padding-x)] py-[var(--tooltip-padding-y)] text-left text-body-sm leading-snug text-[var(--text-secondary)] shadow-md whitespace-pre-line",
+            wide ? "max-w-[22rem]" : "max-w-[var(--tooltip-max-width)]"
           )}
         >
           {content}
@@ -65,7 +65,7 @@ export function MetricLabel({
   className?: string;
 }) {
   return (
-    <p className={cn("text-label inline-flex items-center gap-1.5", className)}>
+    <p className={cn("text-card-title inline-flex items-center gap-1.5", className)}>
       <span>{label}</span>
       <InfoTooltip content={tooltip} label={tooltipLabel ?? `About ${label}`} wide={wide} />
     </p>

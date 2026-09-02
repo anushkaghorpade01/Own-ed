@@ -124,36 +124,11 @@ describe("IndexedDB persistence", () => {
     expect(restored.assumptions.rent).toBe(200_000);
   });
 
-  it("round-trips payload without losing math review items", async () => {
-    const state = defaultAppState();
-    state.mathReviewItems = [
-      {
-        id: "review-1",
-        areaId: "pl",
-        areaLabel: "P&L",
-        pageHref: "/math/pl",
-        reviewType: "accuracy_check",
-        title: "Check EBITDA",
-        notes: "Verify",
-        accuracyRating: "needs_review",
-        status: "open",
-        priority: "medium",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ];
-    const payload = appStateToPayload(state);
-    const roundTrip = payloadToAppState(payload);
-    expect(roundTrip.mathReviewItems).toHaveLength(1);
-    expect(roundTrip.mathReviewItems[0].title).toBe("Check EBITDA");
-  });
-
   it("countPayloadRecords handles legacy payloads missing programmingItems", () => {
     const payload = appStateToPayload(defaultAppState());
     const legacy = {
       ...payload,
       extensions: {
-        mathReviewItems: payload.extensions.mathReviewItems,
         productConcepts: payload.extensions.productConcepts,
         brandItems: payload.extensions.brandItems,
         spaceImages: payload.extensions.spaceImages,

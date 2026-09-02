@@ -20,7 +20,6 @@ import type {
   RoadmapItem,
   ProductConcept,
   ProgrammingItem,
-  MathReviewItem,
   Scenario,
   Snapshot,
   Product,
@@ -69,9 +68,6 @@ interface AppContextValue {
   addQuestion: (question: OpenQuestion) => void;
   addAction: (action: NextAction) => void;
   toggleAction: (id: string) => void;
-  addMathReviewItem: (item: MathReviewItem) => void;
-  updateMathReviewItem: (id: string, updates: Partial<MathReviewItem>) => void;
-  deleteMathReviewItem: (id: string) => void;
   addRoadmapItem: (item: RoadmapItem) => void;
   updateRoadmapItem: (id: string, updates: Partial<RoadmapItem>) => void;
   deleteRoadmapItem: (id: string) => void;
@@ -265,40 +261,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         actions: prev.actions.map((a) =>
           a.id === id ? { ...a, completed: !a.completed } : a
         ),
-      }));
-    },
-    [updateState]
-  );
-
-  const addMathReviewItem = useCallback(
-    (item: MathReviewItem) => {
-      updateState((prev) => ({
-        ...prev,
-        mathReviewItems: [item, ...prev.mathReviewItems],
-      }));
-    },
-    [updateState]
-  );
-
-  const updateMathReviewItem = useCallback(
-    (id: string, updates: Partial<MathReviewItem>) => {
-      updateState((prev) => ({
-        ...prev,
-        mathReviewItems: prev.mathReviewItems.map((item) =>
-          item.id === id
-            ? { ...item, ...updates, updatedAt: new Date().toISOString() }
-            : item
-        ),
-      }));
-    },
-    [updateState]
-  );
-
-  const deleteMathReviewItem = useCallback(
-    (id: string) => {
-      updateState((prev) => ({
-        ...prev,
-        mathReviewItems: prev.mathReviewItems.filter((item) => item.id !== id),
       }));
     },
     [updateState]
@@ -880,9 +842,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addQuestion,
         addAction,
         toggleAction,
-        addMathReviewItem,
-        updateMathReviewItem,
-        deleteMathReviewItem,
         addRoadmapItem,
         updateRoadmapItem,
         deleteRoadmapItem,

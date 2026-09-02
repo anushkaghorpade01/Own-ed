@@ -289,41 +289,6 @@ export const SalesTargetPreferencesSchema = z.object({
 
 export type SalesTargetPreferences = z.infer<typeof SalesTargetPreferencesSchema>;
 
-/** Founder / CA verification notes on model accuracy and fixes */
-export const MathReviewItemSchema = z.object({
-  id: z.string(),
-  /** Registry key — e.g. sales_target, cash_flow */
-  areaId: z.string(),
-  areaLabel: z.string(),
-  pageHref: z.string(),
-  reviewType: z.enum([
-    "accuracy_check",
-    "calculation_bug",
-    "recommendation",
-    "ca_question",
-    "other",
-  ]),
-  /** Traffic-light style accuracy assessment */
-  accuracyRating: z
-    .enum(["not_reviewed", "looks_correct", "needs_review", "incorrect"])
-    .default("not_reviewed"),
-  /** Optional 1–5 confidence that the model is right */
-  confidenceScore: z.number().int().min(1).max(5).optional(),
-  title: z.string(),
-  notes: z.string().default(""),
-  /** What the reviewer expected to see */
-  expectedValue: z.string().optional(),
-  /** What the model currently shows */
-  actualValue: z.string().optional(),
-  reviewerName: z.string().optional(),
-  status: z.enum(["open", "acknowledged", "fixed", "wont_fix", "verified"]).default("open"),
-  priority: z.enum(["low", "medium", "high"]).default("medium"),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-
-export type MathReviewItem = z.infer<typeof MathReviewItemSchema>;
-
 export const EscalationTypeSchema = z.enum([
   "annual_pct",
   "step_pct_interval",

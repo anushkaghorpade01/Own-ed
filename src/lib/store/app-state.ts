@@ -13,7 +13,6 @@ import type {
   RoadmapItem,
   ProductConcept,
   ProgrammingItem,
-  MathReviewItem,
   Scenario,
   Snapshot,
   ProductVersionSnapshot,
@@ -24,7 +23,6 @@ export interface AppState {
   decisions: Decision[];
   questions: OpenQuestion[];
   actions: NextAction[];
-  mathReviewItems: MathReviewItem[];
   roadmapItems: RoadmapItem[];
   productConcepts: ProductConcept[];
   programmingItems: ProgrammingItem[];

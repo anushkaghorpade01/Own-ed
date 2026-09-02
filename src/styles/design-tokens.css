@@ -1,4 +1,8 @@
-/* Own-ed design system — typography, spacing, surfaces */
+/* Own-ed design system — typography, spacing, surfaces, cards
+ *
+ * Spacing scale: 4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 48 px
+ * Hierarchy: H1 > H2 (section) > card title > metric value > body > caption
+ */
 
 :root {
   /* Surfaces */
@@ -13,35 +17,67 @@
   --text-muted: #a39e98;
   --accent: #c4a882;
 
-  /* Spacing */
-  --space-page-x: 1.5rem;
-  --space-page-y: 1.5rem;
-  --space-h1-desc: 0.5rem;
-  --space-desc-section: 1.25rem;
-  --space-section: 1.25rem;
-  --space-card: 1rem;
-  --space-h2-content: 0.75rem;
+  /* Spacing scale */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-8: 2rem; /* 32px */
+  --space-10: 2.5rem; /* 40px */
+  --space-12: 3rem; /* 48px */
 
-  /* Typography — ONE size per role */
+  /* Semantic spacing */
+  --space-page-x: var(--space-6);
+  --space-page-y: var(--space-6);
+  --space-page-max: 72rem;
+  --space-h1-desc: var(--space-2);
+  --space-desc-section: var(--space-5);
+  --space-section: var(--space-6);
+  --space-page-section: var(--space-8);
+  --space-grid-gap: var(--space-4);
+  --space-card-inner: var(--space-3);
+  --space-card-title-value: var(--space-2);
+  --space-value-desc: var(--space-1);
+  --space-h2-content: var(--space-3);
+  --space-section-header: var(--space-3);
+  --space-form-field: var(--space-4);
+  --space-form-label: var(--space-2);
+
+  /* Typography — one size per role */
   --text-h1: 1.75rem;
   --text-h1-lh: 1.2;
   --text-h1-weight: 700;
-  --text-h2: 1.125rem;
+  --text-h2: 1.25rem;
   --text-h2-weight: 600;
   --text-h3: 0.9375rem;
   --text-h3-weight: 600;
   --text-body-lg: 0.9375rem;
   --text-body: 0.875rem;
   --text-body-sm: 0.8125rem;
+  --text-card-title: 0.8125rem;
+  --text-card-title-weight: 600;
   --text-label: 0.6875rem;
-  --text-caption: 0.6875rem;
-  --text-kpi: 1.5rem;
+  --text-caption: 0.75rem;
+  --text-metric-value: 1.75rem;
+  --text-metric-value-weight: 600;
+  --text-kpi: var(--text-metric-value);
   --text-kpi-secondary: 1.125rem;
 
-  /* Card */
+  /* Card & panel */
   --card-radius: 0.75rem;
-  --card-padding: 1rem;
+  --card-padding: var(--space-5);
+  --card-padding-compact: var(--space-4);
+  --section-card-padding: var(--space-4);
   --card-border: 1px solid var(--border-default);
+
+  /* Controls */
+  --input-height: 2.25rem;
+  --button-height: 2.25rem;
+  --tooltip-max-width: 20rem;
+  --tooltip-padding-x: var(--space-3);
+  --tooltip-padding-y: var(--space-2);
 }
 
 /* Typography utilities */
@@ -85,6 +121,16 @@
   line-height: 1.45;
 }
 
+.text-card-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-card-title);
+  font-weight: var(--text-card-title-weight);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
 .text-label {
   font-size: var(--text-label);
   font-weight: 500;
@@ -99,11 +145,21 @@
   color: var(--text-muted);
 }
 
+.text-metric-value {
+  font-family: var(--font-sans);
+  font-size: var(--text-metric-value);
+  font-weight: var(--text-metric-value-weight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
 .text-kpi {
   font-family: var(--font-sans);
   font-size: var(--text-kpi);
-  font-weight: 600;
+  font-weight: var(--text-metric-value-weight);
   font-variant-numeric: tabular-nums;
+  line-height: 1.15;
   color: var(--text-primary);
 }
 
@@ -122,6 +178,7 @@
   font-family: var(--font-serif);
 }
 
+/* Card surfaces */
 .card-surface {
   border: var(--card-border);
   border-radius: var(--card-radius);
@@ -129,6 +186,82 @@
   padding: var(--card-padding);
 }
 
+.card-surface-compact {
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--surface-card);
+  padding: var(--card-padding-compact);
+}
+
+.section-card {
+  border: var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--surface-card);
+  padding: var(--section-card-padding);
+}
+
+/* Layout rhythm */
 .page-section {
   margin-bottom: var(--space-section);
+}
+
+.page-section-major {
+  margin-bottom: var(--space-page-section);
+}
+
+.metric-grid {
+  display: grid;
+  gap: var(--space-grid-gap);
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .metric-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .metric-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.metric-grid-cols-2 {
+  display: grid;
+  gap: var(--space-grid-gap);
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .metric-grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.metric-grid-cols-3 {
+  display: grid;
+  gap: var(--space-grid-gap);
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .metric-grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .metric-grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }

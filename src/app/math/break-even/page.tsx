@@ -1,7 +1,7 @@
 "use client";
 
 import { useFinanceModel } from "@/hooks/use-finance-model";
-import { SectionHeader, SampleBanner, MetricCard, BusinessInsightCard } from "@/components/shared/metric-card";
+import { SectionHeader, SampleBanner, MetricCard, MetricGrid, PageSection, BusinessInsightCard } from "@/components/shared/metric-card";
 import {
   explainBreakEvenOccupancy,
   explainContributionMargin,
@@ -23,12 +23,12 @@ export default function BreakEvenPage() {
       />
       <SampleBanner />
 
-      <div className="mb-8 grid gap-4">
+      <PageSection spacing="major" className="grid gap-[var(--space-grid-gap)]">
         <BusinessInsightCard {...contributionInsight} />
         <BusinessInsightCard {...marginInsight} />
-      </div>
+      </PageSection>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <MetricGrid columns={2}>
         <MetricCard
           label="Contribution break-even occupancy"
           value={formatPercent(be.contributionBreakEven.breakEvenOccupancyPct)}
@@ -56,9 +56,9 @@ export default function BreakEvenPage() {
               : `You're losing money — need ${be.contributionBreakEven.breakEvenOccupancyPct.minus(model.assumptions.projectedBookedOccupancyPct).toFixed(0)} more percentage points of occupancy.`
           }
         />
-      </div>
+      </MetricGrid>
 
-      <Card className="mt-8">
+      <Card className="page-section-major">
         <CardHeader>
           <CardTitle>Four different break-even concepts</CardTitle>
         </CardHeader>

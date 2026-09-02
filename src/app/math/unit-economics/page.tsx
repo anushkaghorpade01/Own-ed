@@ -1,7 +1,7 @@
 "use client";
 
 import { useFinanceModel } from "@/hooks/use-finance-model";
-import { SectionHeader, SampleBanner, MetricCard, BusinessInsightCard } from "@/components/shared/metric-card";
+import { SectionHeader, SampleBanner, MetricCard, MetricGrid, PageSection, BusinessInsightCard } from "@/components/shared/metric-card";
 import { explainContributionMargin } from "@/lib/finance/business-insights";
 import { formatINR } from "@/lib/format/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,11 +19,11 @@ export default function UnitEconomicsPage() {
       />
       <SampleBanner />
 
-      <div className="mb-8">
+      <PageSection spacing="major">
         <BusinessInsightCard {...marginInsight} />
-      </div>
+      </PageSection>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <MetricGrid columns={3}>
         <MetricCard
           label="CM1 / occupied seat"
           value={formatINR(ue.perSeat.contributionMarginPerSeat)}
@@ -40,9 +40,9 @@ export default function UnitEconomicsPage() {
           value={`${ue.perReformer.utilisationPct.toFixed(1)}%`}
           businessInsight={`Each reformer is booked ${ue.perReformer.utilisationPct.toFixed(0)}% of available time. Under-used reformers are expensive floor space.`}
         />
-      </div>
+      </MetricGrid>
 
-      <Card className="mt-8">
+      <Card className="page-section-major">
         <CardHeader>
           <CardTitle>Per class economics — what each occupancy level earns</CardTitle>
         </CardHeader>

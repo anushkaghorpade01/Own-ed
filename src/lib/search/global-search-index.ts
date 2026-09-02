@@ -177,12 +177,6 @@ const APP_PAGES: PageEntry[] = [
     group: "Math",
     keywords: ["dictionary", "glossary", "terms", "definitions"],
   },
-  {
-    title: "Math Review",
-    href: "/math/review",
-    group: "Math",
-    keywords: ["review", "audit", "health check"],
-  },
   { title: "Actuals", href: "/math/actuals", group: "Math", keywords: ["actuals", "actual"] },
   { title: "Snapshots", href: "/math/snapshots", group: "Math", keywords: ["snapshots", "snapshot"] },
   { title: "Schedule", href: "/math/schedule", group: "Math", keywords: ["schedule", "timetable", "classes per day"] },

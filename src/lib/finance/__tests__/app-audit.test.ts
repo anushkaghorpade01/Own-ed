@@ -16,7 +16,6 @@ import {
   evaluateSalesPlan,
   solveSalesForProfitTarget,
 } from "../engine/sales-client-target";
-import { MATH_REVIEW_AREAS } from "../math-review-areas";
 import type { FinanceAssumptions, ClassScheduleEntry } from "../schemas";
 
 const APP_ROOT = join(__dirname, "../../../app");
@@ -37,7 +36,6 @@ const MATH_NAV_HREFS = [
   "/math/break-even",
   "/math/payback",
   "/math/dictionary",
-  "/math/review",
   "/math/actuals",
   "/math/snapshots",
 ];
@@ -81,12 +79,6 @@ describe("Navigation — all linked routes exist", () => {
       expect(existsSync(hrefToPagePath(href))).toBe(true);
     });
   }
-
-  it("math review areas point to existing pages", () => {
-    for (const area of MATH_REVIEW_AREAS) {
-      expect(existsSync(hrefToPagePath(area.href))).toBe(true);
-    }
-  });
 
   it("schedule redirects to capacity (removed from nav)", () => {
     expect(existsSync(hrefToPagePath("/math/schedule"))).toBe(true);

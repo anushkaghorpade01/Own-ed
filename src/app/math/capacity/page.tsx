@@ -5,6 +5,8 @@ import { generateSchedulingRecommendations } from "@/lib/finance/engine/capacity
 import { useApp } from "@/lib/store/app-store";
 import {
   MetricCard,
+  MetricGrid,
+  PageSection,
   SectionHeader,
   SampleBanner,
   BusinessInsightCard,
@@ -58,7 +60,7 @@ export default function CapacityPage() {
       />
       <SampleBanner />
 
-      <div className="mb-6">
+      <PageSection spacing="default">
         <CollapsibleSection
           title="Key distinctions"
           defaultOpen={false}
@@ -81,14 +83,14 @@ export default function CapacityPage() {
             ))}
           </dl>
         </CollapsibleSection>
-      </div>
+      </PageSection>
 
-      <div className="mb-8 grid gap-4">
+      <PageSection spacing="major" className="grid gap-[var(--space-grid-gap)]">
         <BusinessInsightCard {...utilInsight} />
         <BusinessInsightCard {...opportunityInsight} />
-      </div>
+      </PageSection>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <MetricGrid>
         <MetricCard
           label="Total physical capacity"
           value={uc.totalPhysicalCapacity.toFixed(0)}
@@ -112,9 +114,9 @@ export default function CapacityPage() {
           value={model.capacity.attendedSeatsMonthly.toFixed(0)}
           subtitle="After cancellations & no-shows"
         />
-      </div>
+      </MetricGrid>
 
-      <Card className="mt-6 border-dashed border-[#E0DAD2] bg-[#FDFBF7]">
+      <Card className="page-section border-dashed border-[var(--border-default)] bg-[var(--surface-page)]">
         <CardHeader>
           <CardTitle className="text-sm">Unrealised revenue opportunity (theoretical)</CardTitle>
         </CardHeader>

@@ -59,7 +59,6 @@ export function backupToAppState(backup: OwnedBackupV1): AppState {
     schemaVersion: 1,
     normalized: backup.data,
     extensions: {
-      mathReviewItems: [],
       productConcepts: [],
       programmingItems: [],
       brandItems: [],

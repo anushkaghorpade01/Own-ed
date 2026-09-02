@@ -105,8 +105,8 @@ export const troubleshootingSections: GuideSection[] = [
       "2. Open How is this calculated? on the page if available.",
       "3. Change one input and confirm the output moves in the expected direction.",
       "4. Check units — net vs gross, monthly vs per-session, per pack vs per credit.",
-      "5. If it still looks wrong, log it in Math Review rather than manually overriding model outputs.",
+      "5. Use Ask OWNED or the Finance Dictionary if a definition or formula is unclear.",
     ],
-    related: [{ id: "math-review", label: "Math Review" }],
+    related: [{ id: "dictionary", label: "Finance Dictionary" }],
   },
 ];

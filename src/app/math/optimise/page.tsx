@@ -3,7 +3,7 @@
 import { useMemo, useState, useDeferredValue, useEffect, useRef } from "react";
 import { useApp } from "@/lib/store/app-store";
 import { useFinanceModel } from "@/hooks/use-finance-model";
-import { SectionHeader } from "@/components/shared/metric-card";
+import { SectionHeader, MetricCard, MetricGrid, SectionCard } from "@/components/shared/metric-card";
 import { Explainer } from "@/components/ui/explainer";
 import { FinanceTable, FinanceTableRow } from "@/components/ui/finance-table";
 import { Button } from "@/components/ui/button";
@@ -166,8 +166,8 @@ export default function OptimisePage() {
       />
 
       {/* Target input */}
-      <section className="card-surface mb-4">
-        <p className="text-label">Target monthly net profit</p>
+      <SectionCard className="page-section">
+        <p className="text-card-title">Target monthly net profit</p>
         <div className="mt-2 flex flex-wrap items-end gap-4">
           <div>
             <Input
@@ -195,10 +195,9 @@ export default function OptimisePage() {
             ))}
           </div>
         </div>
-      </section>
+      </SectionCard>
 
-      {/* Lever preferences — moved up for immediate access */}
-      <section className="card-surface mb-4">
+      <SectionCard className="page-section">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-h2">Lever preferences</p>
@@ -270,29 +269,21 @@ export default function OptimisePage() {
             },
           ]}
         />
-      </section>
+      </SectionCard>
 
-      {/* Current / Target / Gap */}
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <div className="card-surface">
-          <p className="text-label">Current model</p>
-          <p className="text-kpi mt-1">{formatINR(analysis.currentModel.netProfit)}</p>
-          <p className="text-caption mt-1">EBITDA {formatINR(analysis.currentModel.ebitda)}</p>
-        </div>
-        <div className="card-surface">
-          <p className="text-label">Target</p>
-          <p className="text-kpi mt-1">{formatINR(gap.target)}</p>
-        </div>
-        <div className="card-surface">
-          <p className="text-label">Gap</p>
-          <p className="text-kpi mt-1">
-            {gap.alreadyAchieved ? "Achieved" : formatINR(gap.gap)}
-          </p>
-          {!gap.alreadyAchieved && (
-            <p className="text-caption mt-1">per month to close</p>
-          )}
-        </div>
-      </div>
+      <MetricGrid columns={3} className="page-section">
+        <MetricCard
+          label="Current model"
+          value={formatINR(analysis.currentModel.netProfit)}
+          subtitle={`EBITDA ${formatINR(analysis.currentModel.ebitda)}`}
+        />
+        <MetricCard label="Target" value={formatINR(gap.target)} />
+        <MetricCard
+          label="Gap"
+          value={gap.alreadyAchieved ? "Achieved" : formatINR(gap.gap)}
+          subtitle={!gap.alreadyAchieved ? "per month to close" : undefined}
+        />
+      </MetricGrid>
 
       {analysis.structuralViability.message && (
         <div className="card-surface mb-4 border-amber-200 bg-amber-50 text-body-sm text-amber-900">

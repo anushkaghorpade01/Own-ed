@@ -1,7 +1,7 @@
 "use client";
 
 import { useFinanceModel } from "@/hooks/use-finance-model";
-import { MetricCard, SectionHeader } from "@/components/shared/metric-card";
+import { MetricCard, SectionHeader, MetricGrid } from "@/components/shared/metric-card";
 import { WeightedRevenueCard } from "@/components/finance/weighted-revenue-card";
 import { getModelInsights, explainGrossMargin } from "@/lib/finance/business-insights";
 import { formatINR, formatPercent } from "@/lib/format/currency";
@@ -19,7 +19,7 @@ export default function MathOverviewPage() {
         description="Central financial model — all pages use the same calculation engine."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <MetricGrid columns={3} className="page-section">
         <MetricCard
           label="Break-even occupancy"
           value={formatPercent(breakEven.breakEvenOccupancyPct)}
@@ -57,7 +57,7 @@ export default function MathOverviewPage() {
           explainerSections={[{ title: "What it means", content: insights[2].explanation }]}
           trace={model.pl.traces.ebitda}
         />
-      </div>
+      </MetricGrid>
 
       <WeightedRevenueCard />
     </div>

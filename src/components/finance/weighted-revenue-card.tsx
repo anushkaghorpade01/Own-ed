@@ -30,14 +30,14 @@ export function WeightedRevenueCard() {
   const economics = weighted.serviceBookingBreakdown;
 
   return (
-    <section className="card-surface mt-[var(--space-section)]">
+    <section className="card-surface page-section">
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <MetricLabel
             label="Group / flexible net sales / occupied spot"
             tooltip={GROUP_NET_SALES_TOOLTIP}
           />
-          <p className="text-kpi mt-1">
+          <p className="text-metric-value mt-[var(--space-card-title-value)]">
             {formatINR(weighted.weightedGroupNetSalesPerOccupiedSpot)}
           </p>
           <p className="text-body-sm mt-1 text-[var(--text-secondary)]">
@@ -49,7 +49,7 @@ export function WeightedRevenueCard() {
             label="Blended net sales / occupied reformer spot"
             tooltip={BLENDED_NET_SALES_TOOLTIP}
           />
-          <p className="text-kpi mt-1">
+          <p className="text-metric-value mt-[var(--space-card-title-value)]">
             {formatINR(weighted.blendedNetSalesPerOccupiedSpot)}
           </p>
           <p className="text-body-sm mt-1 text-[var(--text-secondary)]">

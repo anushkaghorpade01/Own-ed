@@ -4,10 +4,16 @@ import { useMemo } from "react";
 import { useApp } from "@/lib/store/app-store";
 import { runFinanceModel } from "@/lib/finance";
 import { formatINR, formatPercent } from "@/lib/format/currency";
-import { MetricCard, SectionHeader, SampleStatusChip, BusinessInsightCard } from "@/components/shared/metric-card";
+import {
+  MetricCard,
+  MetricGrid,
+  PageSection,
+  SectionHeader,
+  SampleStatusChip,
+  BusinessInsightCard,
+} from "@/components/shared/metric-card";
 import { SetupCompleteness } from "@/components/setup/setup-completeness";
 import { explainOwnerCompensation } from "@/lib/finance/business-insights";
-import { OPERATING_CASH_INFLOW_BASIS } from "@/lib/finance/cash-basis";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -34,14 +40,16 @@ export default function HomePage() {
       <SampleStatusChip />
 
       {ownerCompInsight && (
-        <div className="mb-6">
+        <PageSection spacing="default">
           <BusinessInsightCard {...ownerCompInsight} />
-        </div>
+        </PageSection>
       )}
 
-      <SetupCompleteness />
+      <PageSection spacing="default">
+        <SetupCompleteness showCompleteLink />
+      </PageSection>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <MetricGrid className="page-section-major">
         <MetricCard
           label="Launch investment"
           value={formatINR(model.summary.launchInvestment)}
@@ -84,31 +92,26 @@ export default function HomePage() {
           href="/math/payback"
           trace={model.payback.trace}
         />
-        <MetricCard
-          label="Reformers"
-          value={String(model.summary.reformers)}
-          href="/math/assumptions"
-        />
+        <MetricCard label="Reformers" value={String(model.summary.reformers)} href="/math/assumptions" size="compact" />
         <MetricCard
           label="Weekly classes"
           value={model.summary.weeklyClasses.toFixed(0)}
           href="/math/capacity"
+          size="compact"
         />
         <MetricCard
           label="Projected utilisation"
           value={formatPercent(model.summary.utilisationPct)}
           href="/math/capacity"
+          size="compact"
         />
         <MetricCard
           label="Studios researched"
           value={String(state.studios.length)}
           href="/studios"
+          size="compact"
         />
-        <MetricCard
-          label="Open decisions"
-          value={String(openDecisions)}
-          href="/"
-        />
+        <MetricCard label="Open decisions" value={String(openDecisions)} href="/" size="compact" />
         <MetricCard
           label="Target opening"
           value={
@@ -117,32 +120,31 @@ export default function HomePage() {
               : "Not set"
           }
           href="/math/assumptions"
+          size="compact"
         />
-      </div>
+      </MetricGrid>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-2">
+      <div className="page-section-major grid gap-[var(--space-grid-gap)] lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Recent decisions</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-[var(--space-4)]">
             {state.decisions.length === 0 ? (
-              <p className="text-sm text-[#A39E98]">No decisions recorded yet.</p>
+              <p className="text-body-sm text-[var(--text-muted)]">No decisions recorded yet.</p>
             ) : (
               state.decisions.slice(0, 5).map((d) => (
-              <div key={d.id} className="border-b border-[#F0EBE3] pb-3 last:border-0">
-                <div className="flex items-center gap-2">
-                  <Badge variant={statusColors[d.status]}>{d.status}</Badge>
-                  <span className="text-xs text-[#A39E98]">
-                    {format(new Date(d.date), "d MMM yyyy")}
-                  </span>
+                <div key={d.id} className="border-b border-[var(--border-subtle)] pb-[var(--space-3)] last:border-0">
+                  <div className="flex items-center gap-[var(--space-2)]">
+                    <Badge variant={statusColors[d.status]}>{d.status}</Badge>
+                    <span className="text-caption">{format(new Date(d.date), "d MMM yyyy")}</span>
+                  </div>
+                  <p className="text-body mt-1 font-medium text-[var(--text-primary)]">{d.decision}</p>
+                  {d.reasoning && (
+                    <p className="text-caption mt-0.5 text-[var(--text-secondary)]">{d.reasoning}</p>
+                  )}
                 </div>
-                <p className="mt-1 text-sm font-medium text-[#2C2825]">{d.decision}</p>
-                {d.reasoning && (
-                  <p className="mt-0.5 text-xs text-[#6B6560]">{d.reasoning}</p>
-                )}
-              </div>
-            ))
+              ))
             )}
           </CardContent>
         </Card>
@@ -151,11 +153,11 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle>Open questions</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-[var(--space-3)]">
             {openQuestions.map((q) => (
-              <div key={q.id} className="rounded-lg bg-[#FAF8F5] px-4 py-3">
-                <p className="text-sm text-[#2C2825]">{q.question}</p>
-                {q.context && <p className="mt-1 text-xs text-[#6B6560]">{q.context}</p>}
+              <div key={q.id} className="rounded-lg bg-[var(--surface-page)] px-[var(--space-4)] py-[var(--space-3)]">
+                <p className="text-body text-[var(--text-primary)]">{q.question}</p>
+                {q.context && <p className="text-caption mt-1 text-[var(--text-secondary)]">{q.context}</p>}
               </div>
             ))}
           </CardContent>
@@ -165,24 +167,25 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle>Next actions</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-[var(--space-2)]">
             {state.actions.filter((a) => !a.completed).length === 0 ? (
-              <p className="text-sm text-[#A39E98]">No open actions.</p>
+              <p className="text-body-sm text-[var(--text-muted)]">No open actions.</p>
             ) : (
-              state.actions.filter((a) => !a.completed).slice(0, 5).map((a) => (
-              <Link
-                key={a.id}
-                href={a.link ?? "#"}
-                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-[#FAF8F5]"
-              >
-                <span className="text-[#2C2825]">{a.title}</span>
-                {a.dueDate && (
-                  <span className="text-xs text-[#A39E98]">
-                    {format(new Date(a.dueDate), "d MMM")}
-                  </span>
-                )}
-              </Link>
-            ))
+              state.actions
+                .filter((a) => !a.completed)
+                .slice(0, 5)
+                .map((a) => (
+                  <Link
+                    key={a.id}
+                    href={a.link ?? "#"}
+                    className="flex items-center justify-between rounded-lg px-[var(--space-3)] py-[var(--space-2)] text-body hover:bg-[var(--surface-page)]"
+                  >
+                    <span className="text-[var(--text-primary)]">{a.title}</span>
+                    {a.dueDate && (
+                      <span className="text-caption">{format(new Date(a.dueDate), "d MMM")}</span>
+                    )}
+                  </Link>
+                ))
             )}
           </CardContent>
         </Card>
@@ -191,35 +194,31 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle>Recently added research</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-[var(--space-2)]">
             {state.libraryItems.length === 0 && state.studios.length === 0 ? (
-              <p className="text-sm text-[#A39E98]">No research added yet.</p>
+              <p className="text-body-sm text-[var(--text-muted)]">No research added yet.</p>
             ) : (
               <>
-            {state.libraryItems.slice(0, 4).map((item) => (
-              <Link
-                key={item.id}
-                href="/library"
-                className="block rounded-lg px-3 py-2 text-sm hover:bg-[#FAF8F5]"
-              >
-                <span className="text-[10px] uppercase tracking-wider text-[#A39E98]">
-                  {item.type}
-                </span>
-                <p className="text-[#2C2825]">{item.title}</p>
-              </Link>
-            ))}
-            {state.studios.slice(0, 2).map((s) => (
-              <Link
-                key={s.id}
-                href="/studios"
-                className="block rounded-lg px-3 py-2 text-sm hover:bg-[#FAF8F5]"
-              >
-                <span className="text-[10px] uppercase tracking-wider text-[#A39E98]">
-                  Studio
-                </span>
-                <p className="text-[#2C2825]">{s.name}</p>
-              </Link>
-            ))}
+                {state.libraryItems.slice(0, 4).map((item) => (
+                  <Link
+                    key={item.id}
+                    href="/library"
+                    className="block rounded-lg px-[var(--space-3)] py-[var(--space-2)] text-body hover:bg-[var(--surface-page)]"
+                  >
+                    <span className="text-label">{item.type}</span>
+                    <p className="text-[var(--text-primary)]">{item.title}</p>
+                  </Link>
+                ))}
+                {state.studios.slice(0, 2).map((s) => (
+                  <Link
+                    key={s.id}
+                    href="/studios"
+                    className="block rounded-lg px-[var(--space-3)] py-[var(--space-2)] text-body hover:bg-[var(--surface-page)]"
+                  >
+                    <span className="text-label">Studio</span>
+                    <p className="text-[var(--text-primary)]">{s.name}</p>
+                  </Link>
+                ))}
               </>
             )}
           </CardContent>
@@ -227,9 +226,9 @@ export default function HomePage() {
       </div>
 
       {model.validationErrors.length > 0 && (
-        <div className="mt-6 rounded-lg border border-[#E8C4C4] bg-[#FCEAEA] px-4 py-3">
-          <p className="text-sm font-medium text-[#8B3A3A]">Validation warnings</p>
-          <ul className="mt-1 list-inside list-disc text-xs text-[#8B3A3A]">
+        <div className="mt-[var(--space-6)] rounded-lg border border-[#E8C4C4] bg-[#FCEAEA] px-[var(--space-4)] py-[var(--space-3)]">
+          <p className="text-body font-medium text-[#8B3A3A]">Validation warnings</p>
+          <ul className="text-caption mt-1 list-inside list-disc text-[#8B3A3A]">
             {model.validationErrors.map((e, i) => (
               <li key={i}>{e.message}</li>
             ))}

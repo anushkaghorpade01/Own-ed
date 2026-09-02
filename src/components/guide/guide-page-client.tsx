@@ -302,8 +302,7 @@ export function GuidePageClient() {
       )}
 
       <footer className="mt-12 border-t border-[var(--border-subtle)] pt-4 text-center text-caption text-[var(--text-muted)]">
-        Questions about a specific number? Use <Link href="/math/dictionary" className="underline">Dictionary</Link> or{" "}
-        <Link href="/math/review" className="underline">Math Review</Link> for CA notes.
+        Questions about a specific number? Use <Link href="/math/dictionary" className="underline">Dictionary</Link> or Ask OWNED.
       </footer>
     </div>
   );

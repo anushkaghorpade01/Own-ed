@@ -10,7 +10,6 @@ import type {
   SpaceImage,
   LibraryItem,
   BrandItem,
-  MathReviewItem,
   ProductConcept,
   ProgrammingItem,
 } from "@/lib/finance/schemas";
@@ -74,7 +73,6 @@ export interface LocalDbPayload {
   schemaVersion: number;
   normalized: NormalizedAppData;
   extensions: {
-    mathReviewItems: MathReviewItem[];
     productConcepts: ProductConcept[];
     programmingItems: ProgrammingItem[];
     brandItems: BrandItem[];
@@ -368,7 +366,6 @@ export interface LegacyAppState {
   decisions?: Decision[];
   questions?: OpenQuestion[];
   actions?: import("@/lib/finance/schemas").NextAction[];
-  mathReviewItems?: MathReviewItem[];
   roadmapItems?: import("@/lib/finance/schemas").RoadmapItem[];
   productConcepts?: ProductConcept[];
   brandItems?: BrandItem[];
