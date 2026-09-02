@@ -1,0 +1,301 @@
+import type { GuideSection } from "./types";
+
+export const mathSections: GuideSection[] = [
+  {
+    id: "math-overview",
+    title: "Math overview",
+    category: "Math",
+    keywords: ["math", "overview", "dashboard", "summary"],
+    body: [
+      "The Math overview shows headline metrics — revenue, EBITDA, break-even occupancy, payback — from your current assumptions.",
+      "Use it as a health check before diving into detail pages.",
+    ],
+    payAttention: ["Sample model chip — numbers are planning defaults until you replace them."],
+    related: [{ id: "assumptions", label: "Assumptions" }],
+  },
+  {
+    id: "assumptions",
+    title: "Assumptions",
+    category: "Math",
+    keywords: ["assumptions", "rent", "staff", "tax", "setup", "investment", "costs", "escalation"],
+    aliases: ["rent", "operating costs"],
+    body: [
+      "Where you change the underlying business inputs: rent, salaries, utilities, tax rate, setup investment, working capital, ramp-up, and global toggles.",
+      "Assumptions feed almost every other Math page. Edit here first when reality changes.",
+    ],
+    payAttention: [
+      "Setup investment drives payback — not monthly P&L directly.",
+      "Cost escalation affects multi-year views where shown.",
+      "Product details live under Access Products / Pricing, not only here.",
+    ],
+    related: [
+      { id: "pricing", label: "Pricing" },
+      { id: "pl", label: "P&L" },
+    ],
+  },
+  {
+    id: "pricing",
+    title: "Pricing",
+    category: "Math",
+    keywords: ["pricing", "price", "gst", "net sales", "drop-in", "8-pack", "16-pack", "private"],
+    aliases: ["8 pack", "8-pack", "16 pack", "drop in"],
+    body: [
+      "Canonical rule: the price you enter is net sales excluding GST.",
+      "Example — Private net ₹4,000 + 18% GST = customer pays ₹4,720. Own-ed uses ₹4,000 for sales, contribution, profit, break-even, and optimisation.",
+      "GST collected is shown separately — it is not Own-ed revenue.",
+    ],
+    payAttention: [
+      "Pack prices are per package; unit economics shows per-credit and per-session views.",
+      "Edit pack rules (validity, redemption) under Access Products.",
+    ],
+    related: [
+      { id: "unit-economics", label: "Unit Economics" },
+      { id: "access-products", label: "Access Products" },
+    ],
+  },
+  {
+    id: "service-demand-mix",
+    title: "Service demand mix",
+    category: "Math",
+    keywords: ["mix", "service demand", "bookings", "drop-in", "8-pack", "16-pack", "private", "allocation"],
+    aliases: ["product mix", "booking mix"],
+    body: [
+      "Answers: out of every 100 occupied reformer bookings, what share comes from each service?",
+      "Core mix products: Drop-in, 8 Credit Pack, 16 Credit Pack, Private.",
+      "Standing Spot and Standby are optional — configure separately under Access Products if you use them.",
+    ],
+    payAttention: [
+      "Mix percentages should sum to 100% for base-case services.",
+      "This is booking mix, not customer count.",
+    ],
+    related: [
+      { id: "capacity", label: "Capacity" },
+      { id: "access-products", label: "Access Products" },
+    ],
+  },
+  {
+    id: "capacity",
+    title: "Capacity",
+    category: "Math",
+    keywords: ["capacity", "occupancy", "reformers", "classes", "spots", "utilisation", "bookings"],
+    aliases: ["classes", "reformer spots", "utilization"],
+    body: [
+      "Capacity answers: how much can the studio physically deliver?",
+      "One class with 3 occupied reformers = 1 class, 3 occupied reformer spots — not 3 classes.",
+      "Occupancy = occupied reformer spots ÷ available reformer spots in the period.",
+    ],
+    payAttention: [
+      "Reformers × classes per day × operating days sets available spots.",
+      "Projected occupancy is your planning input; Sales & Client Target may show implied occupancy as output.",
+    ],
+    related: [
+      { id: "sales-client-target", label: "Sales & Client Target" },
+      { id: "break-even", label: "Break-even" },
+    ],
+  },
+  {
+    id: "access-products",
+    title: "Access Products",
+    category: "Math",
+    keywords: ["access", "packs", "standing", "standby", "flexible", "credits", "pack rules"],
+    aliases: ["8-pack", "credit pack", "standing spot"],
+    body: [
+      "Configure how each access product works — pack validity, expected redemption, standing reservations, standby empty-seat economics.",
+      "Flexible packs, Standing Spot, and Standby each have dedicated sub-pages.",
+    ],
+    payAttention: [
+      "Pack designer and credit health help you see liability and peak pressure.",
+      "Access Products Actuals compares assumed vs recorded behaviour when you have data.",
+    ],
+    related: [{ id: "pricing", label: "Pricing" }],
+  },
+  {
+    id: "unit-economics",
+    title: "Unit Economics",
+    category: "Math",
+    keywords: ["unit economics", "contribution", "per session", "per credit", "margin"],
+    body: [
+      "Shows contribution per session, per credit, and per reformer hour by product.",
+      "Use it to compare whether private, packs, or drop-in earn enough after direct costs.",
+    ],
+    related: [{ id: "pl", label: "P&L" }],
+  },
+  {
+    id: "pl",
+    title: "P&L",
+    category: "Math",
+    keywords: ["p&l", "profit", "net profit", "ebitda", "net sales", "revenue", "loss"],
+    aliases: ["profit and loss", "money", "earnings"],
+    body: [
+      "Answers: does this version of the studio make money?",
+      "Net sales (ex-GST) minus direct costs = gross profit. Minus operating expenses = EBITDA. After depreciation, interest, and tax = net profit.",
+      "Monthly view reflects current assumptions; yearly views use escalation where modelled.",
+    ],
+    payAttention: [
+      "Net sales ≠ customer cash if GST registered — see Pricing.",
+      "EBITDA is operating profit before depreciation and financing.",
+    ],
+    related: [
+      { id: "cash-flow", label: "Cash Flow" },
+      { id: "break-even", label: "Break-even" },
+    ],
+  },
+  {
+    id: "cash-flow",
+    title: "Cash Flow",
+    category: "Math",
+    keywords: ["cash", "cash flow", "bank", "prepaid", "timing", "liquidity"],
+    aliases: ["money", "bank cash", "cashflow"],
+    body: [
+      "Answers: does the business actually have enough cash?",
+      "Profit and cash differ because of setup investment, prepaid pack purchases, loan payments, deposits, and timing of inflows vs outflows.",
+      "Operating cash in the model uses prepaid pack purchase timing for flexible sales unless you change basis on the page.",
+    ],
+    related: [
+      { id: "payback", label: "Investment recovery" },
+      { id: "dont-confuse", label: "Profit vs cash" },
+    ],
+  },
+  {
+    id: "payback",
+    title: "Investment recovery (Payback)",
+    category: "Math",
+    keywords: ["payback", "investment", "recovery", "cumulative", "setup", "launch investment"],
+    aliases: ["investment recovery", "roi"],
+    body: [
+      "Answers: how long to earn back your original setup investment?",
+      "Tracks cumulative operating cash against launch investment. Below zero: still recovering. At zero: recovered. Above: cash generated beyond the hurdle.",
+      "This is not the same as your bank balance — see Cash Flow.",
+    ],
+    related: [{ id: "assumptions", label: "Setup investment" }],
+  },
+  {
+    id: "break-even",
+    title: "Break-even",
+    category: "Math",
+    keywords: ["break-even", "breakeven", "occupancy", "threshold", "fixed costs"],
+    aliases: ["break even"],
+    body: [
+      "Own-ed shows four related but different concepts:",
+      "1. Contribution break-even occupancy — class contribution covers fixed operating costs.",
+      "2. EBITDA break-even occupancy — covers all operating expenses including variable costs.",
+      "3. Operating cash break-even month — first month cash in exceeds cash out.",
+      "4. Investment payback — cumulative cash recovers setup investment (see Payback page).",
+    ],
+    payAttention: ["Do not treat them as one number — each answers a different question."],
+    related: [{ id: "capacity", label: "Capacity" }],
+  },
+  {
+    id: "sales-client-target",
+    title: "Sales & Client Target",
+    category: "Math",
+    keywords: ["sales", "client", "target", "profit target", "signups", "required sales", "clients"],
+    aliases: ["profit target", "how many clients", "sales target"],
+    body: [
+      "Starts with target monthly net profit. Own-ed works backwards to required sales, product mix, estimated clients, credits created, expected bookings, and capacity feasibility.",
+      "Profit is the target. Occupancy and capacity status are feasibility checks — not inputs you set here.",
+      "You can also edit your own product mix and see profit update live.",
+    ],
+    payAttention: [
+      "Sales required ≠ new clients required.",
+      "One 8-pack sale is one transaction but many future bookings.",
+    ],
+    related: [
+      { id: "sales-vs-clients", label: "Sales vs clients" },
+      { id: "credits", label: "Credits" },
+    ],
+  },
+  {
+    id: "sales-vs-clients",
+    title: "Sales vs clients",
+    category: "Math",
+    keywords: ["clients", "transactions", "sales", "active clients", "new clients", "signups"],
+    aliases: ["customers", "members"],
+    body: [
+      "A sale is not always a new client. One drop-in = one transaction. One 8-pack = one pack sale but multiple future bookings. One private client may book several sessions per month.",
+      "Own-ed separates: sales required, active clients required, and new clients needed this month where modelled.",
+    ],
+    related: [{ id: "sales-client-target", label: "Sales & Client Target" }],
+  },
+  {
+    id: "credits",
+    title: "Credits",
+    category: "Math",
+    keywords: ["credits", "redemption", "8-pack", "16-pack", "breakage", "validity", "bookings"],
+    aliases: ["credit pack", "pack credits"],
+    body: [
+      "Credits sold are not the same as bookings in the same month. An 8-pack creates 8 credits used over the validity period.",
+      "For commercial planning, pack net sales count when sold. Expected redemption drives capacity, delivery costs, and credit health.",
+    ],
+    related: [{ id: "access-products", label: "Access Products" }],
+  },
+  {
+    id: "optimise",
+    title: "Optimise",
+    category: "Math",
+    keywords: ["optimise", "optimize", "levers", "paths", "target", "pricing", "occupancy"],
+    body: [
+      "Answers: what could I change to reach the profit level I want?",
+      "Set a target and toggle levers (pricing, occupancy, private sessions, costs, reformers, etc.). Own-ed suggests paths and single-lever changes.",
+      "Recommendations are modelled options — not guarantees. Locked levers stay fixed in calculations.",
+    ],
+    payAttention: [
+      "Click levers to cycle Open → Prefer not → Locked.",
+      "Use Test scenario to draft a path without changing your base case.",
+    ],
+    related: [{ id: "scenarios", label: "Scenario Analysis" }],
+  },
+  {
+    id: "scenarios",
+    title: "Scenario Analysis",
+    category: "Math",
+    keywords: ["scenario", "what if", "base case", "conservative", "compare"],
+    aliases: ["what if"],
+    body: [
+      "Answers: what if rent is higher, occupancy lower, or private demand stronger?",
+      "Create scenarios from your base case, adjust assumptions, and compare outputs side by side.",
+      "Base case is the live planning model; other scenarios are branches for decision-making.",
+    ],
+    related: [{ id: "snapshots", label: "Snapshots" }],
+  },
+  {
+    id: "snapshots",
+    title: "Snapshots",
+    category: "Math",
+    keywords: ["snapshot", "save", "version", "history", "freeze"],
+    body: [
+      "Save a named point-in-time copy of model outputs for later reference.",
+      "Useful before a major assumption change — e.g. pre-lease model.",
+    ],
+  },
+  {
+    id: "math-review",
+    title: "Math Review",
+    category: "Math",
+    keywords: ["review", "ca", "accuracy", "bug", "verify", "accountant"],
+    body: [
+      "Track notes for you or your CA — flag areas that need verification, expected vs actual values, and fix status.",
+      "Does not change calculations; it is a review queue linked to Math pages.",
+    ],
+  },
+  {
+    id: "actuals",
+    title: "Actuals (post-launch)",
+    category: "Math",
+    keywords: ["actuals", "actual", "variance", "post-launch", "tracking"],
+    body: [
+      "Planned for post-opening: enter monthly actual seats, revenue, and expenses to compare against forecast.",
+      "Currently shows guidance only — the studio has not launched yet in the default workflow.",
+    ],
+    payAttention: ["Marked as post-launch — not required for pre-opening planning."],
+  },
+  {
+    id: "dictionary",
+    title: "Dictionary",
+    category: "Math",
+    keywords: ["dictionary", "terms", "definitions", "glossary", "cm1", "ebitda"],
+    body: [
+      "Searchable definitions for terms used across Math pages — contribution, net sales, fully loaded cost, etc.",
+    ],
+  },
+];
