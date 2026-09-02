@@ -674,6 +674,7 @@ export const StudioSchema = z.object({
   interestingDetails: z.string().optional(),
   pricingNotes: z.string().optional(),
   productGaps: z.string().optional(),
+  notes: z.string().optional(),
   imageUrls: z.array(z.string()).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),

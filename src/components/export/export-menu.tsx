@@ -7,6 +7,7 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useApp } from "@/lib/store/app-store";
 import { downloadFinancialExport } from "@/lib/export/download";
+import { downloadStudiosExport } from "@/lib/export/download-studios";
 import {
   buildPageCsvExport,
   downloadPageCsv,
@@ -28,6 +29,21 @@ export function ExportMenu() {
 
   const csvSupported = pageCsvExportSupported(pathname);
   const csvPageTitle = getPageCsvPageTitle(pathname);
+  const onStudiosPage = pathname === "/studios";
+
+  const runStudiosExport = async () => {
+    setBusy(true);
+    try {
+      const result = await downloadStudiosExport(state.studios);
+      if (result.ok) {
+        toast.success("Studios workbook downloaded.", { description: result.filename });
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const runExport = async (mode: "full" | "quick") => {
     setBusy(true);
@@ -118,6 +134,21 @@ export function ExportMenu() {
           sideOffset={6}
           align="end"
         >
+          {onStudiosPage && (
+            <>
+              <DropdownMenu.Item
+                className="cursor-pointer rounded-md px-3 py-2 text-xs font-medium outline-none hover:bg-[#FAF8F5]"
+                disabled={state.studios.length === 0 || busy}
+                onSelect={() => void runStudiosExport()}
+              >
+                Studio intelligence (.xlsx)
+                <span className="mt-0.5 block text-[10px] font-normal text-[#6B6560]">
+                  One tab per studio + index
+                </span>
+              </DropdownMenu.Item>
+              <DropdownMenu.Separator className="my-1 h-px bg-[#E8E2D9]" />
+            </>
+          )}
           <DropdownMenu.Item
             className="cursor-pointer rounded-md px-3 py-2 text-xs font-medium outline-none hover:bg-[#FAF8F5]"
             onSelect={() => void runExport("full")}

@@ -83,6 +83,7 @@ interface AppContextValue {
   deleteProgrammingItem: (id: string) => void;
   addStudio: (studio: Studio) => void;
   updateStudio: (id: string, updates: Partial<Studio>) => void;
+  deleteStudio: (id: string) => void;
   addSpaceImage: (image: SpaceImage) => void;
   updateSpaceImage: (id: string, updates: Partial<SpaceImage>) => void;
   deleteSpaceImage: (id: string) => void;
@@ -404,6 +405,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         studios: prev.studios.map((s) =>
           s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
         ),
+      }));
+    },
+    [updateState]
+  );
+
+  const deleteStudio = useCallback(
+    (id: string) => {
+      updateState((prev) => ({
+        ...prev,
+        studios: prev.studios.filter((s) => s.id !== id),
       }));
     },
     [updateState]
@@ -883,6 +894,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteProgrammingItem,
         addStudio,
         updateStudio,
+        deleteStudio,
         addSpaceImage,
         updateSpaceImage,
         deleteSpaceImage,
