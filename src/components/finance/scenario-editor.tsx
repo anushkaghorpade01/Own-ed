@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useApp } from "@/lib/store/app-store";
+import { isOptimisationDraftScenario } from "@/lib/finance/scenario-helpers";
 import { DebouncedNumberInput } from "@/components/ui/debounced-input";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,12 +29,20 @@ export function ScenarioEditor({ scenarioId }: { scenarioId: string }) {
   const scenario = state.scenarios.find((s) => s.id === scenarioId);
   if (!scenario || scenario.archived) return null;
 
+  const isDraft = isOptimisationDraftScenario(scenario);
   const model = useMemo(() => runFinanceModel(scenario.assumptions), [scenario.assumptions]);
 
   return (
-    <div className="card-surface space-y-3">
+    <div className={`card-surface space-y-3 ${isDraft ? "border border-dashed border-[#C4A882]" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-h3">{scenario.name}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-h3">{scenario.name}</h3>
+          {isDraft && (
+            <span className="rounded-full bg-[#FFF8E7] px-2 py-0.5 text-caption text-[#7A5C00]">
+              Optimise draft
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {!scenario.isBaseCase && (
             <Button type="button" size="sm" variant="outline" onClick={() => setAsBaseCase(scenarioId)}>

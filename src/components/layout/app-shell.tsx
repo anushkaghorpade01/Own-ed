@@ -21,6 +21,7 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { useApp } from "@/lib/store/app-store";
 import { GlobalSearch } from "./global-search";
 import { AskOwnedPanel } from "@/components/ask-owned/ask-owned-panel";
+import { ExportMenu } from "@/components/export/export-menu";
 import { LocalSaveStatus } from "./local-save-status";
 import { useState, useEffect } from "react";
 import { MessageCircleQuestion } from "lucide-react";
@@ -68,6 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Own-ed
           </Link>
           <div className="flex items-center gap-2">
+            <ExportMenu />
             <button
               type="button"
               onClick={() => setAskOpen(true)}

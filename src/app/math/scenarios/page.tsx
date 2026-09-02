@@ -14,6 +14,7 @@ import {
   type SensitivityOutputKey,
 } from "@/lib/finance/engine/scenarios";
 import { ScenarioEditor } from "@/components/finance/scenario-editor";
+import { isOptimisationDraftScenario } from "@/lib/finance/scenario-helpers";
 import { SectionHeader } from "@/components/shared/metric-card";
 import { formatINR, formatPercent } from "@/lib/format/currency";
 import { OPERATING_CASH_INFLOW_BASIS } from "@/lib/finance/cash-basis";
@@ -106,6 +107,9 @@ export default function ScenariosPage() {
   const activeScenarios = state.scenarios.filter((s) => !s.archived);
   const baseScenario =
     activeScenarios.find((s) => s.isBaseCase) ?? activeScenarios[0];
+  const editableScenarios = activeScenarios.filter((s) => !s.isBaseCase);
+  const optimisationDrafts = editableScenarios.filter(isOptimisationDraftScenario);
+  const manualScenarios = editableScenarios.filter((s) => !isOptimisationDraftScenario(s));
   const baseAssumptions = baseScenario?.assumptions ?? state.assumptions;
 
   const comparison = useMemo(() => {
@@ -223,12 +227,23 @@ export default function ScenariosPage() {
       />
 
       <div className="mb-4 space-y-3">
-        {activeScenarios
-          .filter((s) => !s.isBaseCase)
-          .slice(0, 3)
-          .map((s) => (
-            <ScenarioEditor key={s.id} scenarioId={s.id} />
-          ))}
+        {manualScenarios.map((s) => (
+          <ScenarioEditor key={s.id} scenarioId={s.id} />
+        ))}
+        {optimisationDrafts.length > 0 && (
+          <div className="rounded-lg border border-dashed border-[#C4A882] bg-[#FFFBF5] p-3">
+            <p className="text-label mb-2">Drafts from Optimise</p>
+            <p className="text-caption mb-3 text-[#6B6560]">
+              These were created when someone clicked <strong>Test scenario</strong> on the Optimise
+              page. They do not change Base Case. Archive any you do not need.
+            </p>
+            <div className="space-y-3">
+              {optimisationDrafts.map((s) => (
+                <ScenarioEditor key={s.id} scenarioId={s.id} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-1">
@@ -255,21 +270,40 @@ export default function ScenariosPage() {
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {activeScenarios.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => toggleScenario(s.id)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              selectedIds.includes(s.id)
-                ? "bg-[#2C2825] text-[#FAF8F5]"
-                : "bg-[#F0EBE3] text-[#6B6560] hover:text-[#2C2825]"
-            }`}
-          >
-            {s.name}
-            {s.isBaseCase && " ★"}
-          </button>
-        ))}
+        {activeScenarios.map((s) => {
+          const isDraft = isOptimisationDraftScenario(s);
+          return (
+            <div key={s.id} className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => toggleScenario(s.id)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  selectedIds.includes(s.id)
+                    ? "bg-[#2C2825] text-[#FAF8F5]"
+                    : "bg-[#F0EBE3] text-[#6B6560] hover:text-[#2C2825]"
+                } ${isDraft ? "border border-dashed border-[#C4A882]" : ""}`}
+              >
+                {s.name}
+                {s.isBaseCase && " ★"}
+                {isDraft && !s.isBaseCase && " · draft"}
+              </button>
+              {isDraft && (
+                <button
+                  type="button"
+                  aria-label={`Archive ${s.name}`}
+                  title="Archive this Optimise draft"
+                  onClick={() => {
+                    archiveScenario(s.id, true);
+                    setSelectedIds((prev) => prev.filter((id) => id !== s.id));
+                  }}
+                  className="rounded-md px-1.5 py-1 text-xs text-[#8B3A3A] hover:bg-[#FCEAEA]"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {tab === "overview" && (

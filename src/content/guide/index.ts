@@ -2,17 +2,19 @@ import type { GuideGroup, GuideSection } from "./types";
 import { gettingStartedSections } from "./getting-started";
 import { mathSections } from "./math";
 import { profitViewsSection } from "./profit-views";
+import { serviceMixVsSalesPlanSection } from "./service-mix-sales-plan";
 import { workspaceSections } from "./workspace";
 import {
   usingOwnedSections,
   troubleshootingSections,
 } from "./using-owned";
+import { exportFinancialModelSection } from "./service-mix-sales-plan";
 
 export const GUIDE_GROUPS: GuideGroup[] = [
   { category: "Getting Started", sections: gettingStartedSections },
-  { category: "Math", sections: [profitViewsSection, ...mathSections] },
+  { category: "Math", sections: [profitViewsSection, serviceMixVsSalesPlanSection, ...mathSections] },
   { category: "Workspace", sections: workspaceSections },
-  { category: "Using Own-ed", sections: usingOwnedSections },
+  { category: "Using Own-ed", sections: [...usingOwnedSections, exportFinancialModelSection] },
   { category: "Troubleshooting", sections: troubleshootingSections },
 ];
 

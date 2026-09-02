@@ -290,6 +290,37 @@ function handleBankCash(ctx: AskOwnedContext): OwnedAnswer {
 }
 
 function handleSalesTarget(question: string, ctx: AskOwnedContext): OwnedAnswer {
+  const q = question.toLowerCase();
+
+  if (/sales\s+plan.*(?:match|match\s+my|service\s+mix)|service\s+mix.*sales\s+plan|why doesn'?t my sales plan/i.test(q)) {
+    return {
+      sections: [
+        {
+          title: "SALES PLAN VS SERVICE DEMAND MIX",
+          body: "Service Demand Mix is what you expect your bookings to look like.\n\nYour Sales Plan is a what-if combination you want to test.\n\nThey do not have to match.",
+        },
+      ],
+      guideLinks: [
+        { label: "Service demand mix vs sales plan", href: guideHref("service-mix-vs-sales-plan") },
+      ],
+    };
+  }
+
+  if (/why.*credits.*(?:used|matter)|credits.*capacity|credits.*sales plan/i.test(q)) {
+    return {
+      sections: [
+        {
+          title: "WHY CREDITS MATTER HERE",
+          body: "Credits are only used here to estimate future delivery demand and capacity.\n\nThey do not reduce the net sales value of the pack.",
+        },
+      ],
+      guideLinks: [
+        { label: "Service demand mix vs sales plan", href: guideHref("service-mix-vs-sales-plan") },
+        { label: "Credits", href: guideHref("credits") },
+      ],
+    };
+  }
+
   const analysis = runSalesTargetAnalysis(ctx.assumptions);
   const clients = analysis.suggestedMix.clients;
 

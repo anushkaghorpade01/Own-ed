@@ -87,6 +87,20 @@ export interface AcquisitionFunnel {
   steps: string[];
 }
 
+export interface SalesPlanPLDetail {
+  ebitda: Decimal;
+  depreciation: Decimal;
+  interest: Decimal;
+  tax: Decimal;
+}
+
+export interface ImpliedDeliveryMixRow {
+  productId: string;
+  productName: string;
+  deliveryDemand: Decimal;
+  mixPct: Decimal;
+}
+
 export interface SalesTargetSolution {
   mode: SalesSolutionMode;
   quantities: ProductSaleQuantity[];
@@ -95,6 +109,7 @@ export interface SalesTargetSolution {
   operatingExpenses: Decimal;
   planningNetProfit: Decimal;
   surplusToTarget: Decimal;
+  plDetail: SalesPlanPLDetail;
   productRows: ProductCommercialRow[];
   delivery: DeliveryFeasibility;
   clients: ClientRequirement;
@@ -691,10 +706,58 @@ function buildSolution(
     operatingExpenses: plResult.operatingExpenses,
     planningNetProfit: plResult.netProfit,
     surplusToTarget: plResult.netProfit.minus(target),
+    plDetail: {
+      ebitda: plResult.pl.ebitda,
+      depreciation: plResult.pl.depreciation,
+      interest: plResult.pl.interestExpense,
+      tax: plResult.pl.incomeTax,
+    },
     productRows: commercial.rows,
     delivery: calculateDeliveryFeasibility(monthAssumptions, quantities, targetMonth, prefs),
     clients: calculateClientBaseRequirement(monthAssumptions, quantities, prefs),
   };
+}
+
+/**
+ * Operational delivery mix from expected redemptions — not transaction counts.
+ * Includes existing outstanding credit demand when present.
+ */
+export function calculateImpliedDeliveryMix(
+  solution: SalesTargetSolution
+): ImpliedDeliveryMixRow[] {
+  const rows: ImpliedDeliveryMixRow[] = [];
+  let total = new Decimal(0);
+
+  for (const row of solution.productRows) {
+    const demand = row.expectedRedemptionsThisMonth;
+    if (demand.lte(0)) continue;
+    rows.push({
+      productId: row.productId,
+      productName: row.productName,
+      deliveryDemand: demand,
+      mixPct: new Decimal(0),
+    });
+    total = total.plus(demand);
+  }
+
+  const existing = solution.delivery.expectedRedemptionsFromExistingCredits;
+  if (existing.gt(0)) {
+    rows.push({
+      productId: "__existing_credits__",
+      productName: "Existing outstanding credits",
+      deliveryDemand: existing,
+      mixPct: new Decimal(0),
+    });
+    total = total.plus(existing);
+  }
+
+  for (const row of rows) {
+    row.mixPct = total.isZero()
+      ? new Decimal(0)
+      : row.deliveryDemand.dividedBy(total).times(100);
+  }
+
+  return rows;
 }
 
 /** Evaluate a manual sales mix — returns profit, delivery, and client outputs. */

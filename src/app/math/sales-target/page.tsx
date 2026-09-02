@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Explainer } from "@/components/ui/explainer";
 import { MetricLabel } from "@/components/ui/info-tooltip";
+import * as Tooltip from "@radix-ui/react-tooltip";
 import { formatINR, formatPercent } from "@/lib/format/currency";
 import {
   MONTH_FORECAST_PROFIT_TOOLTIP,
@@ -16,14 +17,33 @@ import {
   SALES_PLAN_PROFIT_TOOLTIP,
 } from "@/lib/finance/profit-view-copy";
 import {
+  COMMERCIAL_RESULT_TITLE,
+  CREDITS_CAPACITY_TOOLTIP,
+  DELIVERY_CAPACITY_SECTION_TITLE,
+  FEASIBILITY_NOT_DEMAND_TOOLTIP,
+  FEASIBLE_TOOLTIP,
+  LOAD_FORECAST_TOOLTIP,
+  SALES_NOT_BOOKINGS_TOOLTIP,
+  SUGGEST_FROM_MIX_TOOLTIP,
+  THREE_STEP,
+  YOUR_SALES_PLAN_CAPTION,
+  YOUR_SALES_PLAN_TOOLTIP,
+} from "@/lib/finance/sales-plan-copy";
+import { getSalesPlanProductLabel } from "@/lib/finance/sales-plan-labels";
+import {
   runSalesTargetAnalysis,
   evaluateSalesPlan,
   getCoreSalesProducts,
   calculateAcquisitionFunnel,
   buildServiceDemandMixPct,
+  calculateImpliedDeliveryMix,
   type SalesTargetSolution,
   type CapacityStatus,
 } from "@/lib/finance/engine/sales-client-target";
+import {
+  SalesPlanThreeStepExplainer,
+  ServiceDemandMixReference,
+} from "@/components/finance/sales-plan-explainer";
 import { SalesTargetPreferencesSchema } from "@/lib/finance/schemas";
 import { cn } from "@/lib/cn";
 
@@ -41,64 +61,168 @@ const CAPACITY_LABEL: Record<CapacityStatus, string> = {
 
 const PRESET_TARGETS = [100_000, 200_000, 300_000];
 
-function ProfitSummary({
+function TooltipButton({
+  label,
+  tooltip,
+  onClick,
+}: {
+  label: string;
+  tooltip: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <Button type="button" variant="outline" size="sm" onClick={onClick}>
+          {label}
+        </Button>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          className="z-50 max-w-xs rounded-md bg-[#2C2825] px-3 py-2 text-xs leading-relaxed text-white shadow-lg"
+          sideOffset={4}
+        >
+          {tooltip.split("\n\n").map((p, i) => (
+            <p key={i} className={i > 0 ? "mt-2" : undefined}>
+              {p}
+            </p>
+          ))}
+          <Tooltip.Arrow className="fill-[#2C2825]" />
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  );
+}
+
+function CommercialResult({
   sol,
   targetProfit,
-  label,
-  labelTooltip,
 }: {
   sol: SalesTargetSolution;
   targetProfit: number;
-  label: string;
-  labelTooltip?: string;
 }) {
   const gap = sol.planningNetProfit.toNumber() - targetProfit;
   return (
-    <div className="mt-4 grid gap-2 border-t border-[var(--border-subtle)] pt-4 sm:grid-cols-2">
-      <div className="flex justify-between text-body-sm sm:col-span-2">
-        {labelTooltip ? (
-          <MetricLabel label={label} tooltip={labelTooltip} />
-        ) : (
-          <span className="font-medium">{label}</span>
-        )}
-        <strong className={cn(gap >= 0 ? "text-emerald-800" : "text-red-800")}>
-          {formatINR(sol.planningNetProfit)}
-        </strong>
-      </div>
-      <div className="flex justify-between text-body-sm">
-        <span>Net sales</span>
-        <strong>{formatINR(sol.netSales)}</strong>
-      </div>
-      <div className="flex justify-between text-body-sm">
-        <span>Direct costs</span>
-        <strong>{formatINR(sol.directCosts)}</strong>
-      </div>
-      <div className="flex justify-between text-body-sm">
-        <span>Operating expenses</span>
-        <strong>{formatINR(sol.operatingExpenses)}</strong>
-      </div>
-      <div className="flex justify-between text-body-sm sm:col-span-2">
-        <span>Gap to target ({formatINR(targetProfit)})</span>
-        <strong className={cn(gap >= 0 ? "text-emerald-800" : "text-red-800")}>
-          {gap >= 0 ? `+${formatINR(gap)} above` : `${formatINR(Math.abs(gap))} short`}
-        </strong>
-      </div>
-      <div className="flex justify-between text-body-sm">
-        <span>Implied occupancy</span>
-        <strong>{formatPercent(sol.delivery.impliedOccupancyPct)}</strong>
-      </div>
-      <div className="flex justify-between text-body-sm">
-        <span>Capacity</span>
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-caption",
-            CAPACITY_STYLE[sol.delivery.capacityStatus]
-          )}
-        >
-          {CAPACITY_LABEL[sol.delivery.capacityStatus]}
-        </span>
+    <div className="mt-4 border-t border-[var(--border-subtle)] pt-4">
+      <MetricLabel
+        label={COMMERCIAL_RESULT_TITLE}
+        tooltip={SALES_PLAN_PROFIT_TOOLTIP}
+        tooltipLabel="Commercial result"
+        className="text-label"
+      />
+      <p className="text-caption mt-1 text-[var(--text-muted)]">
+        If you sell this combination, what does it make?
+      </p>
+      <div className="mt-3 grid gap-2 text-body-sm sm:grid-cols-2">
+        <div className="flex justify-between sm:col-span-2">
+          <span>Net sales</span>
+          <strong>{formatINR(sol.netSales)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Direct / delivery costs</span>
+          <strong>{formatINR(sol.directCosts)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Operating expenses</span>
+          <strong>{formatINR(sol.operatingExpenses)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Depreciation</span>
+          <strong>{formatINR(sol.plDetail.depreciation)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Interest</span>
+          <strong>{formatINR(sol.plDetail.interest)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Tax</span>
+          <strong>{formatINR(sol.plDetail.tax)}</strong>
+        </div>
+        <div className="flex justify-between border-t border-[var(--border-subtle)] pt-2 sm:col-span-2">
+          <MetricLabel label="Planning net profit" tooltip={SALES_PLAN_PROFIT_TOOLTIP} />
+          <strong className={cn(gap >= 0 ? "text-emerald-800" : "text-red-800")}>
+            {formatINR(sol.planningNetProfit)}
+          </strong>
+        </div>
+        <div className="flex justify-between sm:col-span-2">
+          <span>Gap / surplus to target ({formatINR(targetProfit)})</span>
+          <strong className={cn(gap >= 0 ? "text-emerald-800" : "text-red-800")}>
+            {gap >= 0 ? `+${formatINR(gap)} surplus` : `${formatINR(Math.abs(gap))} short`}
+          </strong>
+        </div>
       </div>
     </div>
+  );
+}
+
+function DeliveryCapacityCheck({ sol }: { sol: SalesTargetSolution }) {
+  const d = sol.delivery;
+  return (
+    <section className="card-surface">
+      <MetricLabel
+        label={DELIVERY_CAPACITY_SECTION_TITLE}
+        tooltip={THREE_STEP.capacity.tooltip}
+        tooltipLabel="Can I actually deliver it?"
+        className="text-label"
+      />
+      <p className="text-caption mt-1 text-[var(--text-muted)]">
+        Physical capacity to service what you are selling — separate from commercial value.
+      </p>
+
+      <div className="mt-3 grid gap-2 text-body-sm">
+        <div className="flex justify-between">
+          <MetricLabel label="Credits created" tooltip={SALES_NOT_BOOKINGS_TOOLTIP} />
+          <strong>{d.creditsSold.toFixed(0)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <MetricLabel
+            label="Expected delivery demand"
+            tooltip={CREDITS_CAPACITY_TOOLTIP}
+          />
+          <strong>{d.totalReformerDemand.toFixed(0)} spots</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Existing outstanding service demand</span>
+          <strong>{d.expectedRedemptionsFromExistingCredits.toFixed(0)}</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Available capacity</span>
+          <strong>{d.availableReformerSpots.toFixed(0)} spots</strong>
+        </div>
+        <div className="flex justify-between">
+          <span>Implied occupancy / utilisation</span>
+          <strong>{formatPercent(d.impliedOccupancyPct)}</strong>
+        </div>
+        <div className="flex justify-between border-t border-[var(--border-subtle)] pt-2">
+          <MetricLabel label="Capacity status" tooltip={FEASIBLE_TOOLTIP} />
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-caption font-medium",
+              CAPACITY_STYLE[d.capacityStatus]
+            )}
+          >
+            {CAPACITY_LABEL[d.capacityStatus]}
+          </span>
+        </div>
+      </div>
+
+      <p className="text-caption mt-3 text-[var(--text-muted)]">
+        <MetricLabel
+          label="Feasibility is not customer demand"
+          tooltip={FEASIBILITY_NOT_DEMAND_TOOLTIP}
+          className="inline text-caption"
+        />
+      </p>
+
+      {d.peakTimeWarning && (
+        <p className="text-caption mt-2 text-amber-800">{d.peakTimeWarning}</p>
+      )}
+      {d.futureMonthWarnings.map((w) => (
+        <p key={w} className="text-caption mt-2 text-amber-800">
+          {w}
+        </p>
+      ))}
+    </section>
   );
 }
 
@@ -156,6 +280,18 @@ export default function SalesTargetPage() {
     [state.assumptions, customQuantities, targetMonth, targetProfit]
   );
 
+  const forecastSol = useMemo(() => {
+    const qty = Object.fromEntries(
+      products.map((p) => [p.id, analysis.forecastSalesByProduct[p.id] ?? 0])
+    );
+    return evaluateSalesPlan(state.assumptions, qty, targetMonth, targetProfit);
+  }, [state.assumptions, products, analysis.forecastSalesByProduct, targetMonth, targetProfit]);
+
+  const impliedMix = useMemo(
+    () => calculateImpliedDeliveryMix(customSol),
+    [customSol]
+  );
+
   const funnel = calculateAcquisitionFunnel(
     Math.ceil(customSol.clients.newCustomersNeededThisMonth.toNumber()),
     analysis.preferences
@@ -202,9 +338,11 @@ export default function SalesTargetPage() {
     <div>
       <SectionHeader
         title="Sales & Client Target"
-        description="Set how many of each product you plan to sell, then see whether you hit your profit target and what capacity that implies."
+        description="Set a profit target, test any sales combination, and check whether your studio can deliver it."
       />
       <SampleBanner />
+
+      <SalesPlanThreeStepExplainer />
 
       <div className="mb-4 flex justify-end">
         <Link
@@ -270,7 +408,7 @@ export default function SalesTargetPage() {
           />
           <p className="text-kpi mt-1">{formatINR(analysis.forecastProfit)}</p>
           <p className="text-caption mt-1 text-[var(--text-muted)]">
-            What Own-ed currently expects in Month {targetMonth} from your forecast assumptions.
+            From OWNED&apos;s forecast assumptions — not your manual sales plan.
           </p>
         </div>
         <div className="card-surface">
@@ -297,84 +435,84 @@ export default function SalesTargetPage() {
         </Link>
       </p>
 
-      <section className="card-surface mb-4 border-2 border-[var(--border-subtle)]">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-label">Your sales plan</p>
-            <p className="text-caption mt-1 text-[var(--text-muted)]">
-              Enter how many of each you plan to sell this month. Mix should reflect how a real
-              studio runs — not one product alone.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={loadForecast}>
-              Load current forecast
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={suggestFromServiceMix}>
-              Suggest from service mix
-            </Button>
-          </div>
-        </div>
-
-        <p className="text-caption mt-3 text-[var(--text-muted)]">
-          Service demand mix weights:{" "}
-          {products
-            .map((p) => `${p.name} ${serviceMixPct[p.id]?.toFixed(0) ?? 0}%`)
-            .join(" · ")}
-        </p>
-
-        <div className="mt-4 space-y-3">
-          {products.map((p) => (
-            <div key={p.id} className="flex items-center justify-between gap-4">
-              <div>
-                <span className="text-body-sm">{p.name}</span>
-                <span className="text-caption ml-2 text-[var(--text-muted)]">
-                  {serviceMixPct[p.id]?.toFixed(0) ?? 0}% of bookings
-                </span>
-              </div>
-              <Input
-                type="number"
-                min={0}
-                value={customQuantities[p.id] ?? 0}
-                onChange={(e) => setQuantity(p.id, parseInt(e.target.value, 10) || 0)}
-                onBlur={() => persistPrefs()}
-                className="max-w-[100px] text-right text-tabular"
+      <div className="mb-4 grid gap-4 lg:grid-cols-[1fr,minmax(240px,280px)]">
+        <section className="card-surface border-2 border-[var(--border-subtle)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <MetricLabel
+                label="Your sales plan"
+                tooltip={YOUR_SALES_PLAN_TOOLTIP}
+                tooltipLabel="Your sales plan"
+                className="text-label"
+              />
+              <p className="text-caption mt-1 text-[var(--text-muted)]">{YOUR_SALES_PLAN_CAPTION}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <TooltipButton
+                label="Load current forecast"
+                tooltip={LOAD_FORECAST_TOOLTIP}
+                onClick={loadForecast}
+              />
+              <TooltipButton
+                label="Suggest from service mix"
+                tooltip={SUGGEST_FROM_MIX_TOOLTIP}
+                onClick={suggestFromServiceMix}
               />
             </div>
-          ))}
-        </div>
+          </div>
 
-        <div
-          className={cn(
-            "mt-4 rounded-lg px-3 py-2 text-body-sm",
-            profitGap >= 0 ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"
-          )}
-        >
-          {profitGap >= 0 ? (
-            <>
-              Your plan delivers {formatINR(customSol.planningNetProfit)} —{" "}
-              {formatINR(profitGap)} above target.
-            </>
-          ) : (
-            <>
-              Your plan delivers {formatINR(customSol.planningNetProfit)} —{" "}
-              {formatINR(Math.abs(profitGap))} short of target. Adjust quantities above.
-            </>
-          )}
-        </div>
+          <div className="mt-4 space-y-3">
+            {products.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-4">
+                <span className="text-body-sm font-medium uppercase tracking-wide text-[var(--text-secondary)]">
+                  {getSalesPlanProductLabel(p)}
+                </span>
+                <Input
+                  type="number"
+                  min={0}
+                  value={customQuantities[p.id] ?? 0}
+                  onChange={(e) => setQuantity(p.id, parseInt(e.target.value, 10) || 0)}
+                  onBlur={() => persistPrefs()}
+                  className="max-w-[100px] text-right text-tabular"
+                />
+              </div>
+            ))}
+          </div>
 
-        <ProfitSummary
-          sol={customSol}
-          targetProfit={targetProfit}
-          label="Your sales plan profit"
-          labelTooltip={SALES_PLAN_PROFIT_TOOLTIP}
-        />
-      </section>
+          <div
+            className={cn(
+              "mt-4 rounded-lg px-3 py-2 text-body-sm",
+              profitGap >= 0 ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"
+            )}
+          >
+            {profitGap >= 0 ? (
+              <>
+                Commercial result: {formatINR(customSol.planningNetProfit)} —{" "}
+                {formatINR(profitGap)} above target.
+                {customSol.delivery.capacityStatus === "not_feasible" && (
+                  <span className="mt-1 block font-medium text-red-800">
+                    Capacity is not feasible — see delivery check below.
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                Commercial result: {formatINR(customSol.planningNetProfit)} —{" "}
+                {formatINR(Math.abs(profitGap))} short of target.
+              </>
+            )}
+          </div>
+
+          <CommercialResult sol={customSol} targetProfit={targetProfit} />
+        </section>
+
+        <ServiceDemandMixReference products={products} mixPct={serviceMixPct} />
+      </div>
 
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
         <section className="card-surface">
           <p className="text-label">Sales breakdown</p>
-          <FinanceTable headers={["Product", "Sales", "Net sales", "Contribution"]}>
+          <FinanceTable headers={["Product", "Units sold", "Net sales", "Contribution"]}>
             {customSol.productRows.length === 0 ? (
               <FinanceTableRow cells={["Enter quantities above", "—", "—", "—"]} />
             ) : (
@@ -397,70 +535,66 @@ export default function SalesTargetPage() {
           </FinanceTable>
         </section>
 
-        <section className="card-surface">
-          <p className="text-label">Delivery check</p>
-          <div className="mt-3 grid gap-2 text-body-sm">
-            <div className="flex justify-between">
-              <span>Credits sold</span>
-              <strong>{customSol.delivery.creditsSold.toFixed(0)}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Expected redemptions (new)</span>
-              <strong>{customSol.delivery.expectedRedemptionsFromNewSales.toFixed(0)}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Private sessions</span>
-              <strong>{customSol.delivery.privateBookings.toFixed(0)}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Total reformer demand</span>
-              <strong>{customSol.delivery.totalReformerDemand.toFixed(0)} spots</strong>
-            </div>
-            <div className="flex justify-between">
-              <span>Available capacity</span>
-              <strong>{customSol.delivery.availableReformerSpots.toFixed(0)} spots</strong>
-            </div>
-          </div>
-          {customSol.delivery.peakTimeWarning && (
-            <p className="text-caption mt-3 text-amber-800">{customSol.delivery.peakTimeWarning}</p>
-          )}
-          {customSol.delivery.futureMonthWarnings.map((w) => (
-            <p key={w} className="text-caption mt-2 text-amber-800">
-              {w}
-            </p>
-          ))}
-        </section>
+        <DeliveryCapacityCheck sol={customSol} />
       </div>
 
-      {analysis.requiredVsForecast.some((r) => r.gap !== 0) && (
+      <section className="card-surface mb-4">
+        <p className="text-label">Your plan vs forecast</p>
+        <p className="text-caption mt-1 text-[var(--text-muted)]">
+          Forecast quantities come from OWNED&apos;s expected sales volumes — not booking mix
+          percentages.
+        </p>
+        <FinanceTable
+          headers={["", "Forecast", "Your plan"]}
+          className="mt-3 max-w-lg"
+        >
+          {products.map((p) => (
+            <FinanceTableRow
+              key={p.id}
+              cells={[
+                getSalesPlanProductLabel(p),
+                String(analysis.forecastSalesByProduct[p.id] ?? 0),
+                String(customQuantities[p.id] ?? 0),
+              ]}
+            />
+          ))}
+          <FinanceTableRow
+            cells={["Net sales", formatINR(forecastSol.netSales), formatINR(customSol.netSales)]}
+            className="font-medium"
+          />
+          <FinanceTableRow
+            cells={[
+              "Planning net profit",
+              formatINR(forecastSol.planningNetProfit),
+              formatINR(customSol.planningNetProfit),
+            ]}
+            className="font-medium"
+          />
+        </FinanceTable>
+      </section>
+
+      {impliedMix.length > 0 && (
         <section className="card-surface mb-4">
-          <p className="text-label">Service-mix suggestion vs forecast</p>
+          <MetricLabel
+            label="Your plan's implied delivery mix"
+            tooltip={CREDITS_CAPACITY_TOOLTIP}
+            tooltipLabel="Implied delivery mix"
+            className="text-label"
+          />
           <p className="text-caption mt-1 text-[var(--text-muted)]">
-            If you scaled sales to hit target while keeping your service demand mix — for
-            comparison only. Edit your plan above to match what you actually expect to sell.
+            Expected booking/service mix from redemptions — not transaction counts.
           </p>
-          <FinanceTable
-            headers={["Product", "Your plan", "Forecast", "Mix suggestion", "Gap vs forecast"]}
-            className="mt-3"
-          >
-            {products.map((p) => {
-              const yours = customQuantities[p.id] ?? 0;
-              const row = analysis.requiredVsForecast.find((r) => r.productId === p.id);
-              const forecast = row?.forecast ?? 0;
-              const suggested = row?.required ?? 0;
-              return (
-                <FinanceTableRow
-                  key={p.id}
-                  cells={[
-                    p.name,
-                    String(yours),
-                    String(forecast),
-                    String(suggested),
-                    String(yours - forecast),
-                  ]}
-                />
-              );
-            })}
+          <FinanceTable headers={["Service", "Expected delivery demand", "Mix %"]} className="mt-3">
+            {impliedMix.map((row) => (
+              <FinanceTableRow
+                key={row.productId}
+                cells={[
+                  row.productName,
+                  row.deliveryDemand.toFixed(0),
+                  formatPercent(row.mixPct),
+                ]}
+              />
+            ))}
           </FinanceTable>
         </section>
       )}
@@ -480,14 +614,14 @@ export default function SalesTargetPage() {
         trigger="How is this calculated?"
         sections={[
           {
-            title: "Your plan drives everything",
+            title: "Three separate concepts",
             content:
-              "Enter Drop-In purchases, pack sales, and Private sessions. Own-ed calculates planning net profit, capacity demand, and gap vs your target from those numbers.",
+              "Service Demand Mix is what you expect bookings to look like. Your Sales Plan is any combination you want to test. Capacity Check asks whether the studio can physically deliver the service demand your plan creates.",
           },
           {
-            title: "Suggest from service mix",
+            title: "Commercial vs delivery",
             content:
-              "Optional starting point: scales sales to hit your profit target while preserving the service demand mix from Access Products (Drop-In, packs, Private shares). Adjust from there to match what you actually expect.",
+              "Pack net sales count when sold — redemption timing affects capacity, not the commercial sales value. Credits created from packs are used only in the delivery/capacity section.",
           },
         ]}
       />

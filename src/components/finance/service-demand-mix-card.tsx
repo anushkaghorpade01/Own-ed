@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useApp } from "@/lib/store/app-store";
 import { DebouncedNumberInput } from "@/components/ui/debounced-input";
+import { MetricLabel } from "@/components/ui/info-tooltip";
 import { Button } from "@/components/ui/button";
 import {
   calculateServiceDemandMixTotal,
@@ -16,6 +17,7 @@ import {
   syncFlexiblePackageMixFromServiceDemand,
 } from "@/lib/finance/engine/service-demand-mix";
 import { productHasHistoricalUsage } from "@/lib/finance/engine/product-catalog";
+import { SERVICE_DEMAND_MIX_TOOLTIP } from "@/lib/finance/sales-plan-copy";
 import { cn } from "@/lib/cn";
 
 export function ServiceDemandMixCard() {
@@ -81,7 +83,12 @@ export function ServiceDemandMixCard() {
 
   return (
     <section className="card-surface">
-      <p className="text-h2">Service demand mix</p>
+      <MetricLabel
+        label="Service demand mix"
+        tooltip={SERVICE_DEMAND_MIX_TOOLTIP}
+        tooltipLabel="Service demand mix"
+        className="text-h2 block"
+      />
       <p className="text-body-sm mt-1 text-[var(--text-secondary)]">
         Out of every 100 occupied reformer bookings, where do you expect demand to come from?
       </p>

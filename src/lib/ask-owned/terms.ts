@@ -84,4 +84,9 @@ export const DIFFERENCE_ANSWERS: Record<string, { title: string; body: string; g
     body: "Credits are sold when purchased. Credits are used when redeemed on the schedule in your pack rules.",
     guideId: "credits",
   },
+  "sales plan and service mix": {
+    title: "Sales plan vs service demand mix",
+    body: "Service Demand Mix is what you expect your bookings to look like.\n\nYour Sales Plan is a what-if combination you want to test.\n\nThey do not have to match.",
+    guideId: "service-mix-vs-sales-plan",
+  },
 };

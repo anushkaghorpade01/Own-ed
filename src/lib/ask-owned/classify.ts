@@ -53,7 +53,14 @@ const RULES: Array<{ category: QuestionCategory; patterns: RegExp[] }> = [
   },
   {
     category: "SALES_CLIENT_TARGET",
-    patterns: [/how\s+many\s+clients/i, /sales\s+(?:target|plan)/i, /client\s+target/i],
+    patterns: [
+      /how\s+many\s+clients/i,
+      /sales\s+(?:target|plan)/i,
+      /client\s+target/i,
+      /sales\s+plan.*service\s+mix/i,
+      /service\s+mix.*sales\s+plan/i,
+      /why doesn'?t my sales plan/i,
+    ],
   },
   {
     category: "BREAK_EVEN",

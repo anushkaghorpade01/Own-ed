@@ -70,6 +70,10 @@ function TestScenarioButton({ path, targetLabel }: { path: CombinationPath; targ
   const [loading, setLoading] = useState(false);
 
   const handleTest = () => {
+    const ok = window.confirm(
+      `Create a draft scenario "${path.name}" for comparison?\n\nBase Case will not change. You can archive it later from Scenario Analysis.`
+    );
+    if (!ok) return;
     setLoading(true);
     try {
       const merged = applyCombinationPath(state.assumptions, path);
