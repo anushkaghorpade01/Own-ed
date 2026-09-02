@@ -10,6 +10,11 @@ import { Plus, Link as LinkIcon, Upload, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { persistenceService } from "@/lib/data/local/persistence-service";
 import { useAssetUrl } from "@/hooks/use-asset-url";
+import {
+  isSiteSharedSpaceItem,
+  sharedSpaceItemsForBoard,
+} from "@/lib/finance/site-shared-space";
+import { Badge } from "@/components/ui/badge";
 
 const BOARDS = [
   "Overall Mood",
@@ -58,9 +63,10 @@ export default function SpacePage() {
   const [showAdd, setShowAdd] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const boardItems = state.spaceImages.filter(
-    (i) => i.board === activeBoard && !i.isSample
-  );
+  const boardItems = [
+    ...sharedSpaceItemsForBoard(activeBoard),
+    ...state.spaceImages.filter((i) => i.board === activeBoard && !i.isSample),
+  ];
 
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -196,6 +202,7 @@ export default function SpacePage() {
             <SpaceItemCard
               key={item.id}
               item={item}
+              readOnly={isSiteSharedSpaceItem(item.id)}
               onUpdate={(u) => updateSpaceImage(item.id, u)}
               onDelete={() => deleteSpaceImage(item.id)}
             />
@@ -208,10 +215,12 @@ export default function SpacePage() {
 
 function SpaceItemCard({
   item,
+  readOnly,
   onUpdate,
   onDelete,
 }: {
   item: SpaceImage;
+  readOnly?: boolean;
   onUpdate: (u: Partial<SpaceImage>) => void;
   onDelete: () => void;
 }) {
@@ -219,6 +228,11 @@ function SpaceItemCard({
 
   return (
     <div className="card-surface">
+      {readOnly && (
+        <Badge variant="secondary" className="mb-2 text-[10px]">
+          Shared moodboard
+        </Badge>
+      )}
       {displayUrl && item.itemType !== "note" && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={displayUrl} alt={item.title ?? ""} className="mb-2 max-h-48 w-full rounded object-cover" />
@@ -226,11 +240,28 @@ function SpaceItemCard({
       {item.itemType === "link" && !displayUrl && (
         <div className="mb-2 rounded bg-[var(--surface-muted)] p-4 text-body-sm">
           <LinkIcon className="mb-1 h-4 w-4" />
-          <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="break-all underline">
-            {item.sourceUrl}
+          <a
+            href={item.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all font-medium underline"
+          >
+            {item.title ?? item.sourceUrl}
           </a>
+          {item.sourceUrl && item.title && (
+            <p className="mt-1 break-all text-xs text-[var(--text-muted)]">{item.sourceUrl}</p>
+          )}
         </div>
       )}
+      {readOnly ? (
+        <>
+          {item.title && item.itemType !== "link" && (
+            <p className="text-sm font-medium text-[#2C2825]">{item.title}</p>
+          )}
+          {item.notes && <p className="mt-2 text-body-sm text-[#6B6560]">{item.notes}</p>}
+        </>
+      ) : (
+        <>
       <Input value={item.title ?? ""} onChange={(e) => onUpdate({ title: e.target.value })} />
       <textarea
         className="mt-2 w-full rounded border border-[var(--border-default)] p-2 text-body-sm"
@@ -242,6 +273,8 @@ function SpaceItemCard({
       <button type="button" className="text-caption mt-2 text-red-600 hover:underline" onClick={onDelete}>
         Delete
       </button>
+        </>
+      )}
     </div>
   );
 }

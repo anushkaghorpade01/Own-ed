@@ -397,28 +397,14 @@ export function createSampleDecisions(): Decision[] {
 }
 
 export function createSampleQuestions(): OpenQuestion[] {
-  return [
-    {
-      id: "q-1",
-      question: "Should Standing Spots command a premium?",
-      context: "They purchase certainty — may be worth more than flexible credits.",
-      status: "open",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "q-2",
-      question: "Do we operate Saturdays?",
-      status: "open",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "q-3",
-      question: "3 reformers vs 4?",
-      context: "4th reformer adds ~₹1.5L capex but increases capacity 33%.",
-      status: "open",
-      createdAt: new Date().toISOString(),
-    },
-  ];
+  return [];
+}
+
+/** Legacy seed questions — stripped when loading persisted state. */
+export const SAMPLE_QUESTION_IDS = new Set(["q-1", "q-2", "q-3"]);
+
+export function stripSampleQuestions(questions: OpenQuestion[]): OpenQuestion[] {
+  return questions.filter((q) => !SAMPLE_QUESTION_IDS.has(q.id));
 }
 
 export function createSampleActions(): NextAction[] {

@@ -11,6 +11,7 @@ import {
 import { appStateToPayload, payloadToAppState } from "./app-state-bridge";
 import type { AppState } from "@/lib/store/app-state";
 import { defaultAppState } from "@/lib/store/default-state";
+import { stripSampleQuestions } from "@/lib/finance/sample-data";
 
 const LEGACY_STORAGE_KEY = "owned-app-state-v1";
 
@@ -43,6 +44,7 @@ export async function migrateFromLocalStorageIfNeeded(): Promise<{
     const merged: AppState = {
       ...defaultAppState(),
       ...parsed,
+      questions: stripSampleQuestions(parsed.questions ?? defaultAppState().questions),
       undoStack: [],
     };
     const payload = appStateToPayload(merged);

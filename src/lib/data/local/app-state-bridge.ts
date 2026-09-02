@@ -4,6 +4,7 @@
 import type { AppState } from "@/lib/store/app-state";
 import type { LocalDbPayload, LegacyAppState } from "../types";
 import { migrateLegacyAppState, denormalizeToLegacyShape } from "../migration/local-to-normalized";
+import { stripSampleQuestions } from "@/lib/finance/sample-data";
 import { DB_VERSION } from "./db";
 
 function normalizePayloadExtensions(
@@ -59,7 +60,7 @@ export function payloadToAppState(payload: LocalDbPayload): AppState {
   return {
     assumptions: legacy.assumptions!,
     decisions: legacy.decisions ?? [],
-    questions: legacy.questions ?? [],
+    questions: stripSampleQuestions(legacy.questions ?? []),
     actions: legacy.actions ?? [],
     mathReviewItems: defaults.mathReviewItems ?? [],
     roadmapItems: legacy.roadmapItems ?? [],
