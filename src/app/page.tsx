@@ -30,10 +30,7 @@ export default function HomePage() {
 
   return (
     <div>
-      <SectionHeader
-        title="Command Centre"
-        description="Your founder dashboard for planning OWN — the boutique premium Pilates studio."
-      />
+      <SectionHeader title="Your Dashboard" />
       <SampleStatusChip />
 
       {ownerCompInsight && (

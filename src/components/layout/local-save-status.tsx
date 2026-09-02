@@ -20,20 +20,20 @@ export function LocalSaveStatus() {
     <div className="flex items-center gap-2">
       <span
         className={cn(
-          "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+          "rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide",
           saveStatus === "error"
             ? "bg-red-100 text-red-800"
             : saveStatus === "saving"
               ? "bg-amber-100 text-amber-900 animate-pulse"
-              : "bg-emerald-100 text-emerald-800"
+              : "bg-emerald-100 text-emerald-900"
         )}
         title="Your Own-ed data is stored in this browser on this device."
       >
         {saveStatus === "error" ? "Save error" : "Local"}
       </span>
-      <span className="hidden text-[10px] text-[#A39E98] sm:inline">{label}</span>
+      <span className="hidden text-sm font-semibold text-[#2C2825] sm:inline">{label}</span>
       {persistenceStats?.folderConnected && (
-        <span className="hidden text-[10px] text-[#A39E98] md:inline">
+        <span className="hidden text-sm font-medium text-[#6B6560] md:inline">
           + Folder connected
         </span>
       )}

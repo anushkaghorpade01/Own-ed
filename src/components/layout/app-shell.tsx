@@ -37,7 +37,7 @@ const mainNav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { undo, lastSaved } = useApp();
+  const { undo } = useApp();
   const [searchOpen, setSearchOpen] = useState(false);
   const isMath = pathname.startsWith("/math");
 
@@ -82,27 +82,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Undo2 className="h-4 w-4" />
             </button>
-            {lastSaved && (
-              <span className="hidden text-[10px] text-[#A39E98] sm:block">
-                Saved {new Date(lastSaved).toLocaleTimeString("en-IN")}
-              </span>
-            )}
             <LocalSaveStatus />
             <Link
               href="/guide"
               className={cn(
-                "hidden items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium sm:flex",
+                "hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold sm:flex",
                 pathname.startsWith("/guide")
                   ? "bg-[#2C2825] text-[#FAF8F5]"
-                  : "text-[#A39E98] hover:bg-[#F0EBE3] hover:text-[#2C2825]"
+                  : "text-[#2C2825] hover:bg-[#F0EBE3]"
               )}
             >
-              <BookOpen className="h-3.5 w-3.5" />
+              <BookOpen className="h-4 w-4" />
               Guide
             </Link>
             <Link
               href="/settings/data"
-              className="hidden rounded-lg px-2 py-1 text-[10px] text-[#A39E98] hover:bg-[#F0EBE3] hover:text-[#2C2825] sm:block"
+              className="hidden rounded-lg px-2.5 py-1.5 text-sm font-semibold text-[#2C2825] hover:bg-[#F0EBE3] sm:block"
             >
               Data
             </Link>
