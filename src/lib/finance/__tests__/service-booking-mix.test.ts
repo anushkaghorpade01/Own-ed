@@ -31,6 +31,38 @@ function setPrivateMix(base: ReturnType<typeof clone>, privatePct: number) {
   );
 }
 
+/** Preserve 10:30:45 flexible ratios; only Private share changes. */
+function setPrivateKeepingFlexibleRatios(
+  products: ReturnType<typeof clone>["products"],
+  privatePct: number
+) {
+  const flexTotal = 100 - privatePct;
+  const scale = flexTotal / 85;
+  return products.map((p) => {
+    if (p.id === "drop-in") return { ...p, serviceDemandPct: 10 * scale };
+    if (p.id === "8-pack") return { ...p, serviceDemandPct: 30 * scale };
+    if (p.id === "16-pack") return { ...p, serviceDemandPct: 45 * scale };
+    if (p.id === "private-session") return { ...p, serviceDemandPct: privatePct };
+    return { ...p, serviceDemandPct: 0 };
+  });
+}
+
+function buildCanonicalMixFixture() {
+  const base = clone();
+  const products = base.products.map((p) => {
+    if (p.id === "drop-in") return { ...p, price: 2000, serviceDemandPct: 10 };
+    if (p.id === "8-pack") {
+      return { ...p, price: 9600, creditsIncluded: 8, serviceDemandPct: 30 };
+    }
+    if (p.id === "16-pack") {
+      return { ...p, price: 27200, creditsIncluded: 16, serviceDemandPct: 45 };
+    }
+    if (p.id === "private-session") return { ...p, price: 4000, serviceDemandPct: 15 };
+    return { ...p, serviceDemandPct: 0 };
+  });
+  return { ...base, products, privatePrice: 4000 };
+}
+
 describe("Service booking mix — Private in core model", () => {
   it("lists four base-case services including Private", () => {
     const products = listBaseCaseMixProducts(createSampleAssumptions());
@@ -133,5 +165,37 @@ describe("Service booking mix — Private in core model", () => {
     const mix = calculateServiceDemandMixTotal(createSampleAssumptions());
     expect(mix.valid).toBe(true);
     expect(mix.total.toNumber()).toBe(100);
+  });
+
+  it("normalizes flexible net sales per occupied flexible spot (₹1,559 not ₹1,325)", () => {
+    const base = buildCanonicalMixFixture();
+    const economics = calculateServiceBookingEconomics(base);
+
+    // Raw flexible weighted sum: 10%×2000 + 30%×1200 + 45%×1700 = 1325
+    expect(economics.weightedGroupNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(1559, 0);
+    expect(economics.blendedNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(1925, 0);
+  });
+
+  it("flexible net sales and contribution per flexible spot invariant to Private share", () => {
+    const base = buildCanonicalMixFixture();
+
+    const at15 = calculateServiceBookingEconomics(base);
+    const at20 = calculateServiceBookingEconomics({
+      ...base,
+      products: setPrivateKeepingFlexibleRatios(base.products, 20),
+    });
+
+    expect(at15.weightedGroupNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(1559, 0);
+    expect(at20.weightedGroupNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(1559, 0);
+    expect(at15.weightedGroupContributionPerOccupiedSpot.toNumber()).toBeCloseTo(
+      at20.weightedGroupContributionPerOccupiedSpot.toNumber(),
+      0
+    );
+
+    expect(at15.blendedNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(1925, 0);
+    expect(at20.blendedNetSalesPerOccupiedSpot.toNumber()).not.toBeCloseTo(1925, 0);
+    expect(at20.blendedNetSalesPerOccupiedSpot.gt(at15.blendedNetSalesPerOccupiedSpot)).toBe(
+      true
+    );
   });
 });

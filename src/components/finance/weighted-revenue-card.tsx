@@ -7,7 +7,7 @@ import { FinanceTable, FinanceTableRow } from "@/components/ui/finance-table";
 import { InfoTooltip, MetricLabel, TableHeaderWithTooltip } from "@/components/ui/info-tooltip";
 
 const GROUP_NET_SALES_TOOLTIP =
-  "Average net sales per occupied group-class booking, weighted by your service demand mix across Drop-In and credit packs only. Private sessions are excluded — use this for group-class revenue planning.";
+  "Average net sales per occupied flexible (group) booking, weighted by Drop-In and credit pack shares within the flexible cohort. The flexible mix is normalized to 100% — Private is excluded. Changing Private's share of total bookings does not change this metric.";
 
 const BLENDED_NET_SALES_TOOLTIP =
   "Average net sales per occupied reformer booking across all base services (Drop-In, packs, and Private), weighted by service demand mix. This studio-level metric feeds P&L, break-even, and Optimise.";
@@ -79,7 +79,7 @@ export function WeightedRevenueCard() {
           {
             title: "Blended vs group",
             content:
-              "Group/flexible average excludes Private. Blended includes Private and feeds P&L, break-even, and Optimise when Private demand is in the mix.",
+              "Group/flexible average is per occupied flexible booking — mix among Drop-In and packs is normalized to 100% within that cohort. Blended includes Private at its booking share and feeds P&L, break-even, and Optimise.",
           },
         ]}
       />

@@ -181,16 +181,28 @@ describe("customer mix vs credit mix", () => {
 });
 
 describe("weighted realised revenue regression", () => {
-  it("uses service booking mix for weighted group net sales", () => {
+  it("uses service booking mix for weighted group net sales per flexible spot", () => {
     const assumptions = buildRegressionAssumptions();
     const weighted = calculateWeightedRealisedRevenue(assumptions);
     const economics = weighted.serviceBookingBreakdown;
 
-    const handGroup = economics
-      .filter((r) => r.product.type !== "private")
-      .reduce((s, r) => s + r.weightedNetSalesImpact.toNumber(), 0);
+    const groupRows = economics.filter(
+      (r) => r.product.type === "drop_in" || r.product.type === "credit_pack"
+    );
+    const flexMixTotal = groupRows.reduce(
+      (s, r) => s + r.serviceBookingMixPct.toNumber(),
+      0
+    );
+    const handGroupRaw = groupRows.reduce(
+      (s, r) => s + r.weightedNetSalesImpact.toNumber(),
+      0
+    );
+    const handGroupNormalized = handGroupRaw / (flexMixTotal / 100);
 
-    expect(weighted.weightedGroupNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(handGroup, 0);
+    expect(weighted.weightedGroupNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(
+      handGroupNormalized,
+      0
+    );
     expect(weighted.blendedNetSalesPerOccupiedSpot.gt(weighted.weightedGroupNetSalesPerOccupiedSpot)).toBe(
       true
     );

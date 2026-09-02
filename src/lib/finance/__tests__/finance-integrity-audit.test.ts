@@ -350,9 +350,11 @@ describe("Independent cross-check — weighted revenue", () => {
     const engine = calculateWeightedRealisedRevenue(tweaked);
     const dropInRow = engine.serviceBookingBreakdown.find((r) => r.product.id === "drop-in")!;
     const eightRow = engine.serviceBookingBreakdown.find((r) => r.product.id === "8-pack")!;
-    const handGroup = dropInRow.weightedNetSalesImpact.plus(eightRow.weightedNetSalesImpact);
+    const handGroupRaw = dropInRow.weightedNetSalesImpact.plus(eightRow.weightedNetSalesImpact);
+    const flexMixTotal = dropInRow.serviceBookingMixPct.plus(eightRow.serviceBookingMixPct);
+    const handGroupNormalized = handGroupRaw.dividedBy(flexMixTotal.dividedBy(100));
     expect(engine.weightedGroupNetSalesPerOccupiedSpot.toNumber()).toBeCloseTo(
-      handGroup.toNumber(),
+      handGroupNormalized.toNumber(),
       0
     );
   });

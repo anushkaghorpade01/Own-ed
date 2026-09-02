@@ -39,9 +39,11 @@ export {
 } from "./product-pricing";
 
 export interface WeightedRevenueResult {
-  /** Group/flexible only — Drop-In + credit packs */
+  /** Group/flexible only — per occupied flexible booking (Drop-In + credit packs) */
   weightedGroupNetSalesPerOccupiedSpot: Decimal;
-  /** All base-case services including Private */
+  /** Group/flexible only — contribution per occupied flexible booking */
+  weightedGroupContributionPerOccupiedSpot: Decimal;
+  /** All base-case services including Private — per occupied reformer booking */
   blendedNetSalesPerOccupiedSpot: Decimal;
   blendedContributionPerOccupiedSpot: Decimal;
   /** @deprecated alias — use weightedGroupNetSalesPerOccupiedSpot */
@@ -107,6 +109,8 @@ export function calculateWeightedRealisedRevenue(
 
   return {
     weightedGroupNetSalesPerOccupiedSpot: economics.weightedGroupNetSalesPerOccupiedSpot,
+    weightedGroupContributionPerOccupiedSpot:
+      economics.weightedGroupContributionPerOccupiedSpot,
     blendedNetSalesPerOccupiedSpot: economics.blendedNetSalesPerOccupiedSpot,
     blendedContributionPerOccupiedSpot: economics.blendedContributionPerOccupiedSpot,
     weightedNetRevenuePerCredit: economics.weightedGroupNetSalesPerOccupiedSpot,

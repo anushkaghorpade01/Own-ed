@@ -29,8 +29,10 @@ export interface ServiceBookingEconomicsResult {
   rows: ServiceBookingRow[];
   mixTotal: Decimal;
   mixValid: boolean;
-  /** Drop-In + credit packs only */
+  /** Drop-In + credit packs only — per occupied flexible booking (mix normalized to 100% within flexible) */
   weightedGroupNetSalesPerOccupiedSpot: Decimal;
+  /** Drop-In + credit packs only — per occupied flexible booking */
+  weightedGroupContributionPerOccupiedSpot: Decimal;
   /** All base-case services including Private */
   blendedNetSalesPerOccupiedSpot: Decimal;
   blendedContributionPerOccupiedSpot: Decimal;
@@ -91,19 +93,32 @@ function contributionPerOccupiedBooking(
   return contributionPerSession(assumptions, netSales);
 }
 
-/** Group/flexible weighted net sales — no private, no circular deps */
+function isFlexibleGroupProduct(product: BaseCaseMixProduct): boolean {
+  return product.type === "drop_in" || product.type === "credit_pack";
+}
+
+/** Normalize a flexible-only weighted sum to per occupied flexible booking. */
+function normalizeFlexiblePerOccupiedSpot(
+  weightedSum: Decimal,
+  flexibleMixPctTotal: Decimal
+): Decimal {
+  if (flexibleMixPctTotal.isZero()) return new Decimal(0);
+  return weightedSum.dividedBy(flexibleMixPctTotal.dividedBy(100));
+}
+
+/** Group/flexible weighted net sales per occupied flexible booking — Private excluded */
 export function calculateGroupWeightedNetSalesFromServiceMix(
   assumptions: FinanceAssumptions
 ): Decimal {
-  const groupProducts = listBaseCaseMixProducts(assumptions).filter(
-    (p) => p.type === "drop_in" || p.type === "credit_pack"
-  );
-  return sum(
+  const groupProducts = listBaseCaseMixProducts(assumptions).filter(isFlexibleGroupProduct);
+  const flexibleMixTotal = sum(groupProducts.map((p) => d(getServiceDemandPct(p))));
+  const weightedSum = sum(
     groupProducts.map((product) => {
       const weight = d(getServiceDemandPct(product)).dividedBy(100);
       return weight.times(netSalesPerOccupiedBooking(product, assumptions));
     })
   );
+  return normalizeFlexiblePerOccupiedSpot(weightedSum, flexibleMixTotal);
 }
 
 export function calculateServiceBookingEconomics(
@@ -128,9 +143,19 @@ export function calculateServiceBookingEconomics(
     };
   });
 
-  const groupRows = rows.filter((r) => r.product.type !== "private");
-  const weightedGroupNetSalesPerOccupiedSpot = sum(
-    groupRows.map((r) => r.weightedNetSalesImpact)
+  const groupRows = rows.filter((r) => isFlexibleGroupProduct(r.product));
+  const flexibleMixTotal = sum(groupRows.map((r) => r.serviceBookingMixPct));
+  const flexibleNetSalesWeighted = sum(groupRows.map((r) => r.weightedNetSalesImpact));
+  const flexibleContributionWeighted = sum(
+    groupRows.map((r) => r.weightedContributionImpact)
+  );
+  const weightedGroupNetSalesPerOccupiedSpot = normalizeFlexiblePerOccupiedSpot(
+    flexibleNetSalesWeighted,
+    flexibleMixTotal
+  );
+  const weightedGroupContributionPerOccupiedSpot = normalizeFlexiblePerOccupiedSpot(
+    flexibleContributionWeighted,
+    flexibleMixTotal
   );
   const blendedNetSalesPerOccupiedSpot = sum(rows.map((r) => r.weightedNetSalesImpact));
   const blendedContributionPerOccupiedSpot = sum(
@@ -148,6 +173,7 @@ export function calculateServiceBookingEconomics(
     mixTotal,
     mixValid: mixTotal.equals(100),
     weightedGroupNetSalesPerOccupiedSpot,
+    weightedGroupContributionPerOccupiedSpot,
     blendedNetSalesPerOccupiedSpot,
     blendedContributionPerOccupiedSpot,
     trace: trace(
