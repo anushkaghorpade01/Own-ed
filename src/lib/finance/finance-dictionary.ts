@@ -356,6 +356,8 @@ export const FINANCE_DICTIONARY: DictionaryEntry[] = [
     usedIn: "Break-even, Home",
     definition:
       "Minimum % of reformer spots that must be occupied (delivered) for total contribution to cover monthly fixed operating costs.",
+    formula:
+      "Fixed operating costs ÷ contribution per occupied spot ÷ monthly available spots × 100",
     notTheSameAs:
       "EBITDA break-even (higher threshold) or net profit break-even (includes depreciation, interest, tax).",
   },

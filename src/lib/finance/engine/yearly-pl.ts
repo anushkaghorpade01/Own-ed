@@ -37,6 +37,7 @@ export interface YearlyPLRow {
   ebitda: Decimal;
   depreciation: Decimal;
   interestExpense: Decimal;
+  incomeTax: Decimal;
   netProfit: Decimal;
   netProfitMarginPct: Decimal;
   yoyNetRevenuePct: Decimal | null;
@@ -172,6 +173,7 @@ export function aggregateYearlyPL(
       ebitda,
       depreciation: sumMonths(monthly, startMonth, endMonth, (m) => m.pl.depreciation),
       interestExpense: sumMonths(monthly, startMonth, endMonth, (m) => m.pl.interestExpense),
+      incomeTax: sumMonths(monthly, startMonth, endMonth, (m) => m.pl.incomeTax),
       netProfit,
       netProfitMarginPct: marginPct(netProfit, netRevenue),
       yoyNetRevenuePct: prior ? yoyPct(netRevenue, prior.netRevenue) : null,

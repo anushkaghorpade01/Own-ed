@@ -164,7 +164,35 @@ describe("answerOwnedQuestion", () => {
       ...ctx,
       pathname: "/math/unit-economics",
     });
-    expect(ans.sections[0]?.title).toContain("WHERE");
+    expect(ans.sections[0]?.title).toMatch(/HOW|CALCULATION/i);
+    expect(ans.sections[0]?.body).toContain("FORMULA IN OWNED");
+  });
+
+  it("explains EBITDA to net profit with full bridge", () => {
+    const ans = answerOwnedQuestion("how does EBITDA convert to net profit", ctx);
+    expect(ans.isFallback).toBeFalsy();
+    const body = ans.sections.map((s) => s.body).join("\n");
+    expect(body).toContain("EBITDA");
+    expect(body).toContain("Depreciation");
+    expect(body).toContain("Income tax");
+    expect(body).toContain("FORMULA IN OWNED");
+    expect(body).toContain("WHAT IT MEANS");
+  });
+
+  it("explains income tax calculation with rate from assumptions", () => {
+    const ans = answerOwnedQuestion("how is income tax calculated", ctx);
+    expect(ans.isFallback).toBeFalsy();
+    const body = ans.sections[0]?.body ?? "";
+    expect(body).toContain(`${assumptions.incomeTaxRatePct}%`);
+    expect(body).toContain("Profit before tax");
+  });
+
+  it("term answers include business context and live values", () => {
+    const ans = answerOwnedQuestion("what is EBITDA", ctx);
+    expect(ans.sections[0]?.body).toContain("WHAT IT MEANS");
+    expect(ans.sections[0]?.body).toContain("WHY IT MATTERS");
+    expect(ans.sections[0]?.body).toContain("FORMULA IN OWNED");
+    expect(ans.sections[0]?.body).toContain("YOUR MODEL RIGHT NOW");
   });
 
   it("falls back for unknown", () => {

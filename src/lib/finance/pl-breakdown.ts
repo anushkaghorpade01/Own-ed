@@ -44,11 +44,19 @@ export function getDirectCostBreakdown(
   assumptions: FinanceAssumptions
 ): PLBreakdownLine[] {
   const customVariable = sumCustomExpenses(assumptions, "variable");
-  const lines: PLBreakdownLine[] = [
-    { label: "Instructor delivery", value: directCosts.variableInstructorPayouts },
+  const lines: PLBreakdownLine[] = [];
+
+  if (directCosts.variableInstructorPayouts.gt(0)) {
+    lines.push({
+      label: "Instructor delivery",
+      value: directCosts.variableInstructorPayouts,
+    });
+  }
+
+  lines.push(
     { label: "Session consumables", value: directCosts.sessionConsumables },
-    { label: "Payment processing", value: directCosts.paymentFees },
-  ];
+    { label: "Payment processing", value: directCosts.paymentFees }
+  );
 
   if (customVariable.gt(0)) {
     lines.push({ label: "Custom variable expenses", value: customVariable });

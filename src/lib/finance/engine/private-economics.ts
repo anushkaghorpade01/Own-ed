@@ -60,6 +60,16 @@ function groupContributionPerSpot(
   return netPerCredit.minus(consumables).minus(instructor).minus(fee);
 }
 
+export function privateSessionConsumables(
+  assumptions: FinanceAssumptions,
+  product?: Product
+): Decimal {
+  const privateProduct = product ?? getPrivateProduct(assumptions);
+  if (!privateProduct) return new Decimal(0);
+  const rules = privateProduct.privateRules;
+  return d(rules?.otherDirectVariableCost ?? assumptions.sessionConsumables);
+}
+
 export function privateDirectVariableCostPerSession(
   assumptions: FinanceAssumptions,
   product?: Product
@@ -70,16 +80,24 @@ export function privateDirectVariableCostPerSession(
   const rules = privateProduct.privateRules;
   const durationMin = rules?.durationMinutes ?? assumptions.privateDurationMinutes ?? 55;
   const durationHours = d(durationMin).dividedBy(60);
-  const clients = d(rules?.clientsPerSession ?? 1);
-  const instructorPerHour =
-    rules?.instructorCostPerHour != null && rules.instructorCostPerHour > 0
-      ? d(rules.instructorCostPerHour)
-      : d(assumptions.instructorPerClassPayout)
-          .plus(d(assumptions.instructorPerAttendeePayout).times(clients))
-          .dividedBy(durationHours.isZero() ? 1 : durationHours);
-  return instructorPerHour
-    .times(durationHours)
-    .plus(d(rules?.otherDirectVariableCost ?? assumptions.sessionConsumables));
+  const consumables = d(rules?.otherDirectVariableCost ?? assumptions.sessionConsumables);
+
+  let instructorVariable = new Decimal(0);
+  if (rules?.instructorCostPerHour != null && rules.instructorCostPerHour > 0) {
+    instructorVariable = d(rules.instructorCostPerHour).times(durationHours);
+  } else if (assumptions.privateInstructorCost > 0) {
+    instructorVariable = d(assumptions.privateInstructorCost);
+  } else if (
+    assumptions.instructorPerClassPayout > 0 ||
+    assumptions.instructorPerAttendeePayout > 0
+  ) {
+    const clients = d(rules?.clientsPerSession ?? 1);
+    instructorVariable = d(assumptions.instructorPerClassPayout).plus(
+      d(assumptions.instructorPerAttendeePayout).times(clients)
+    );
+  }
+
+  return instructorVariable.plus(consumables);
 }
 
 export function analyzePrivateEconomics(

@@ -21,7 +21,6 @@ export const ESCALATION_FIELD_MAP: Record<string, Array<keyof FinanceAssumptions
     "receptionSalary",
   ],
   security: ["security"],
-  instructor_delivery: ["instructorPerClassPayout", "instructorPerAttendeePayout"],
   private_instructor: ["privateInstructorCost"],
   rent: ["rent"],
   utilities: ["electricityBase", "electricityVariablePerClass", "water"],
@@ -49,7 +48,6 @@ const PRESET_RATES: Record<
   low: {
     payroll: { annualPct: 6, escalationType: "annual_pct" },
     security: { annualPct: 6, escalationType: "annual_pct" },
-    instructor_delivery: { annualPct: 6, escalationType: "annual_pct" },
     private_instructor: { annualPct: 6, escalationType: "annual_pct" },
     rent: { annualPct: 0, escalationType: "annual_pct" },
     utilities: { annualPct: 2, escalationType: "annual_pct" },
@@ -63,7 +61,6 @@ const PRESET_RATES: Record<
   base: {
     payroll: { annualPct: 9, escalationType: "annual_pct" },
     security: { annualPct: 9, escalationType: "annual_pct" },
-    instructor_delivery: { annualPct: 9, escalationType: "annual_pct" },
     private_instructor: { annualPct: 9, escalationType: "annual_pct" },
     rent: { annualPct: 5, escalationType: "annual_pct" },
     utilities: { annualPct: 4, escalationType: "annual_pct" },
@@ -77,7 +74,6 @@ const PRESET_RATES: Record<
   high: {
     payroll: { annualPct: 12, escalationType: "annual_pct" },
     security: { annualPct: 12, escalationType: "annual_pct" },
-    instructor_delivery: { annualPct: 12, escalationType: "annual_pct" },
     private_instructor: { annualPct: 12, escalationType: "annual_pct" },
     rent: { annualPct: 10, escalationType: "annual_pct" },
     utilities: { annualPct: 7, escalationType: "annual_pct" },
@@ -93,7 +89,6 @@ const PRESET_RATES: Record<
 const CATEGORY_LABELS: Record<string, string> = {
   payroll: "Payroll",
   security: "Security",
-  instructor_delivery: "Instructor delivery",
   private_instructor: "Private instructor cost",
   rent: "Rent",
   utilities: "Utilities",
@@ -122,8 +117,9 @@ export function resolveForecastSettings(
   assumptions: FinanceAssumptions
 ): Required<ForecastSettings> {
   const stored = assumptions.forecastSettings;
-  const baseRules =
-    stored?.costEscalations?.length ? stored.costEscalations : createDefaultCostEscalations();
+  const baseRules = (
+    stored?.costEscalations?.length ? stored.costEscalations : createDefaultCostEscalations()
+  ).filter((rule) => rule.categoryId !== "instructor_delivery");
 
   const preset = stored?.costEscalationPreset ?? "base";
   const mergedRules = mergePresetIntoRules(baseRules, preset);

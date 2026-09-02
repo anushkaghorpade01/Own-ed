@@ -124,7 +124,7 @@ describe("Service booking mix — Private in core model", () => {
     expect(after.pl.netProfit.gt(before.pl.netProfit)).toBe(true);
   });
 
-  it("private instructor cost changes contribution not net sales", () => {
+  it("private freelance instructor rate on product is ignored in salaried model", () => {
     const base = clone();
     const before = runFinanceModel(base);
     const privateP = base.products.find((p) => p.type === "private")!;
@@ -141,12 +141,10 @@ describe("Service booking mix — Private in core model", () => {
     );
     const after = runFinanceModel({ ...base, products: afterProducts });
     expect(after.revenue.netRevenue.toNumber()).toBeCloseTo(before.revenue.netRevenue.toNumber(), 0);
-    expect(
-      after.revenue.weightedRevenue.blendedContributionPerOccupiedSpot.lt(
-        before.revenue.weightedRevenue.blendedContributionPerOccupiedSpot
-      )
-    ).toBe(true);
-    expect(after.pl.netProfit.lt(before.pl.netProfit)).toBe(true);
+    expect(after.directCosts.variableInstructorPayouts.toNumber()).toBe(
+      before.directCosts.variableInstructorPayouts.toNumber()
+    );
+    expect(after.pl.netProfit.toNumber()).toBeCloseTo(before.pl.netProfit.toNumber(), 0);
   });
 
   it("blended net sales includes Private at 15% × ₹4,000 = ₹600 weighted", () => {

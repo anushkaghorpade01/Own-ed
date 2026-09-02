@@ -40,11 +40,19 @@ import type { CustomExpense } from "@/lib/finance/schemas";
 import { AnnualEscalationSection } from "@/components/finance/annual-escalation-section";
 import { ForecastTimelineSection } from "@/components/finance/forecast-timeline-section";
 
-const FIXED_FIELDS: Array<{ key: string; label: string }> = [
+const FIXED_FIELDS: Array<{ key: string; label: string; help?: string }> = [
   { key: "rent", label: "Rent" },
   { key: "camMaintenance", label: "CAM / maintenance" },
-  { key: "ownerInstructorSalary", label: "Owner instructor salary" },
-  { key: "additionalInstructorSalary", label: "Additional instructor salary" },
+  {
+    key: "ownerInstructorSalary",
+    label: "Owner instructor salary",
+    help: "Fixed monthly teaching pay. Salaried instructor cost belongs here — this model does not use per-class fees.",
+  },
+  {
+    key: "additionalInstructorSalary",
+    label: "Additional instructor salary",
+    help: "Fixed monthly pay for other salaried instructors.",
+  },
   { key: "cleanerSalary", label: "Cleaner salary" },
   { key: "receptionSalary", label: "Reception salary" },
   { key: "security", label: "Security" },
@@ -57,7 +65,7 @@ const FIXED_FIELDS: Array<{ key: string; label: string }> = [
   { key: "otherFixedCosts", label: "Other fixed costs" },
 ];
 
-const VARIABLE_FIELDS: Array<{ key: string; label: string; suffix?: string }> = [
+const VARIABLE_FIELDS: Array<{ key: string; label: string; suffix?: string; help?: string }> = [
   { key: "electricityBase", label: "Electricity (base)", suffix: "₹/mo" },
   { key: "electricityVariablePerClass", label: "Electricity per class", suffix: "₹" },
   { key: "laundry", label: "Laundry", suffix: "₹/mo" },
@@ -67,8 +75,6 @@ const VARIABLE_FIELDS: Array<{ key: string; label: string; suffix?: string }> = 
   { key: "refreshments", label: "Refreshments", suffix: "₹/mo" },
   { key: "paymentGatewayPct", label: "Payment gateway", suffix: "%" },
   { key: "paymentGatewayFixedFee", label: "Payment gateway fixed fee", suffix: "₹/txn" },
-  { key: "instructorPerClassPayout", label: "Instructor per-class payout", suffix: "₹" },
-  { key: "instructorPerAttendeePayout", label: "Instructor per-attendee", suffix: "₹" },
   { key: "customerAcquisitionSpend", label: "Customer acquisition", suffix: "₹/mo" },
   { key: "repairsReserve", label: "Repairs reserve", suffix: "₹/mo" },
   { key: "miscVariableCosts", label: "Misc variable", suffix: "₹/mo" },
@@ -328,8 +334,8 @@ export default function AssumptionsPage() {
           }
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FIXED_FIELDS.map(({ key, label }) => (
-              <DraftNumberField key={key} field={key} label={label} suffix="₹/mo" />
+            {FIXED_FIELDS.map(({ key, label, help }) => (
+              <DraftNumberField key={key} field={key} label={label} suffix="₹/mo" help={help} />
             ))}
             <DraftCheckboxField
               field="includeOwnerMarketRateComp"
@@ -381,12 +387,13 @@ export default function AssumptionsPage() {
           }
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {VARIABLE_FIELDS.map(({ key, label, suffix }) => (
+            {VARIABLE_FIELDS.map(({ key, label, suffix, help }) => (
               <DraftNumberField
                 key={key}
                 field={key}
                 label={label}
                 suffix={suffix ?? "₹/mo"}
+                help={help}
               />
             ))}
           </div>
@@ -580,12 +587,13 @@ export default function AssumptionsPage() {
           }}
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {TAX_FIELDS.map(({ key, label, suffix }) => (
+            {TAX_FIELDS.map(({ key, label, suffix, help }) => (
               <DraftNumberField
                 key={key}
                 field={key}
                 label={label}
                 suffix={suffix ?? "%"}
+                help={help}
               />
             ))}
           </div>

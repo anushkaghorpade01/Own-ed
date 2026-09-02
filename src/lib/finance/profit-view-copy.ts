@@ -15,3 +15,10 @@ export const SALES_PLAN_PROFIT_TOOLTIP =
 
 export const PLANNING_NET_PROFIT_TOOLTIP =
   "Net sales minus direct costs, operating expenses, depreciation, interest, and tax. Depreciation is included even though it is not cash leaving your bank that month.";
+
+export function incomeTaxLineLabel(taxRatePct: number): string {
+  return `Income tax @ ${taxRatePct}%`;
+}
+
+export const INCOME_TAX_LINE_TOOLTIP =
+  "Applied to profit before tax (EBITDA minus depreciation and interest) when that amount is positive. Change the rate under Assumptions → Depreciation & tax → Income tax rate.";

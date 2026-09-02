@@ -98,6 +98,7 @@ export const MODEL_METRICS: ModelMetricDef[] = [
     isCurrency: true,
     basis: "monthly",
     getValue: (m) => m.pl.ebitda,
+    formula: "Net sales − direct costs − operating expenses",
   },
   {
     id: "net_revenue",
@@ -107,6 +108,7 @@ export const MODEL_METRICS: ModelMetricDef[] = [
     isCurrency: true,
     basis: "monthly",
     getValue: (m) => m.revenue.netRevenue,
+    formula: "Gross customer billings − GST collected − discounts/refunds (ex-GST revenue)",
   },
   {
     id: "rent",
@@ -125,6 +127,7 @@ export const MODEL_METRICS: ModelMetricDef[] = [
     isCurrency: true,
     basis: "absolute",
     getValue: (m) => m.unitEconomics.perSeat.contributionMarginPerSeat,
+    formula: "Net sales per occupied spot − payment fees − consumables − instructor variable",
   },
   {
     id: "blended_net_sales",
@@ -179,6 +182,7 @@ export const MODEL_METRICS: ModelMetricDef[] = [
     isCurrency: false,
     basis: "absolute",
     getValue: (m) => m.breakEven.contributionBreakEven.breakEvenOccupancyPct,
+    formula: "Fixed operating costs ÷ contribution per spot ÷ monthly available spots × 100",
   },
   {
     id: "funding_gap",

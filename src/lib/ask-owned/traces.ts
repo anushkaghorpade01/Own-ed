@@ -81,16 +81,62 @@ export function getMetricTraceForPage(ctx: AskOwnedContext): MetricTrace | null 
   return null;
 }
 
-export function renderTraceBody(trace: MetricTrace): string {
-  const lines = [`This comes from ${trace.metric.toLowerCase()}.`, "", trace.formula, ""];
+const TRACE_BUSINESS_MEANING: Record<string, string> = {
+  "Planning net profit":
+    "This is your planning bottom line after all modelled costs. Positive means the studio model earns more than it spends in a typical month at target occupancy.",
+  "Blended net sales / occupied spot":
+    "This is the average net revenue OWN expects from each booked reformer spot, weighted by your service demand mix. It drives break-even and unit economics.",
+  "Funding gap":
+    "Extra founder cash needed so the bank balance never goes negative during the forecast. If this is zero, planned funding covers the lowest cash point.",
+  "Recovery position":
+    "How much operating cash has been generated versus what you invested at launch. Below zero means investment is not yet recovered.",
+};
+
+export function renderTraceBody(trace: MetricTrace, ctx?: AskOwnedContext): string {
+  const business =
+    TRACE_BUSINESS_MEANING[trace.metric] ??
+    `This number comes from ${trace.metric.toLowerCase()} in your current assumptions.`;
+
+  const lines = [
+    "WHAT IT MEANS",
+    "",
+    business,
+    "",
+    "FORMULA IN OWNED",
+    "",
+    trace.formula,
+    "",
+    "CALCULATION (YOUR MODEL)",
+    "",
+  ];
+
   for (const input of trace.inputs) {
     if (input.formula) {
       lines.push(`${input.label}: ${input.formula}`);
-    } else {
+    } else if (typeof input.value === "number" && input.label.toLowerCase().includes("month")) {
+      lines.push(`${input.label}: ${input.value}`);
+    } else if (typeof input.value === "number") {
       lines.push(`${input.label}: ${formatINR(input.value)}`);
+    } else {
+      lines.push(`${input.label}: ${input.value}`);
     }
   }
-  lines.push("", `Total: ${formatINR(trace.result)}`);
+
+  lines.push("", `Result: ${formatINR(trace.result)}`);
+
+  if (ctx && trace.metric === "Planning net profit") {
+    const { pl } = ctx.model;
+    lines.push(
+      "",
+      "FULL BRIDGE (EBITDA → NET PROFIT)",
+      "",
+      `EBITDA: ${formatINR(pl.ebitda)}`,
+      `− Depreciation: ${formatINR(pl.depreciation)} = EBIT ${formatINR(pl.ebit)}`,
+      `− Interest: ${formatINR(pl.interestExpense)} = PBT ${formatINR(pl.profitBeforeTax)}`,
+      `− Income tax: ${formatINR(pl.incomeTax)} = Planning net profit ${formatINR(pl.netProfit)}`
+    );
+  }
+
   return lines.join("\n");
 }
 

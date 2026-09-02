@@ -31,6 +31,7 @@ import {
   answerClassCountQuestion,
 } from "./capacity-answers";
 import { tryAnswerMathQuestion } from "./math-router";
+import { formatDictionaryAnswer } from "./answer-format";
 
 export function answerOwnedQuestion(question: string, ctx: AskOwnedContext): OwnedAnswer {
   const mathAnswer = tryAnswerMathQuestion(question, ctx);
@@ -348,12 +349,28 @@ function handleSalesTarget(question: string, ctx: AskOwnedContext): OwnedAnswer 
 
 function handleBreakEven(ctx: AskOwnedContext): OwnedAnswer {
   const be = ctx.model.breakEven.contributionBreakEven;
+  const contrib = ctx.model.unitEconomics.perSeat.contributionMarginPerSeat;
+  const fixed = ctx.model.operatingExpenses.totalFixedCosts;
   return {
     sections: [
       {
         title: "BREAK-EVEN",
         body: [
+          "WHAT IT MEANS",
+          "",
+          "Break-even occupancy is the booked fill rate where contribution from spots exactly covers fixed monthly costs (rent, salaries, etc.).",
+          "",
+          "FORMULA IN OWNED",
+          "",
+          "Fixed operating costs ÷ contribution per occupied spot = required spots; ÷ available spots × 100",
+          "",
+          "YOUR MODEL RIGHT NOW",
+          "",
+          `Fixed operating costs: ${formatINR(fixed)}`,
+          `Contribution per occupied spot: ${formatINR(contrib)}`,
+          `Required occupied spots: ${be.requiredOccupiedSeats.toFixed(0)}`,
           `Break-even occupancy: ${formatPercent(be.breakEvenOccupancyPct)}`,
+          "",
           `At target occupancy (${formatPercent(ctx.assumptions.projectedBookedOccupancyPct, 0)}), planning net profit is ${formatINR(ctx.model.pl.netProfit)}.`,
         ].join("\n"),
       },
@@ -428,7 +445,7 @@ function handleExplainMetric(
   const trace = getMetricTraceForPage(ctx);
   if (trace) {
     return {
-      sections: [{ title: "WHERE THIS NUMBER COMES FROM", body: renderTraceBody(trace) }],
+      sections: [{ title: "HOW THIS NUMBER IS CALCULATED", body: renderTraceBody(trace, ctx) }],
     };
   }
 
@@ -471,13 +488,9 @@ function handleExplainTerm(question: string, ctx: AskOwnedContext): OwnedAnswer 
   const dict = searchDictionary(termQuery);
   if (dict.length > 0) {
     const e = dict[0]!;
-    const parts = [e.definition];
-    if (e.formula) parts.push("", `Formula: ${e.formula}`);
-    if (e.example) parts.push("", `Example: ${e.example}`);
-    if (e.notTheSameAs) parts.push("", `Not the same as: ${e.notTheSameAs}`);
     const guideId = TERM_GUIDE_MAP[termQuery.toLowerCase()];
     return {
-      sections: [{ title: e.term, body: parts.join("\n") }],
+      sections: [{ title: e.term, body: formatDictionaryAnswer(e, ctx) }],
       guideLinks: guideId ? [{ label: e.term, href: guideHref(guideId) }] : undefined,
     };
   }

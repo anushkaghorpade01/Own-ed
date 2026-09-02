@@ -22,6 +22,7 @@ import {
 import { formatINR, formatPercent } from "@/lib/format/currency";
 import { guideHref } from "./guide-search";
 import { answerFundingBudgetQuestion } from "./funding-budget-answer";
+import { answerCalculationQuestion, isCalculationQuestion } from "./calculation-answers";
 
 function snapshotFromClassCount(
   result: ReturnType<typeof computeClassCountAtOccupancy>
@@ -111,6 +112,19 @@ function answerPeriodConversion(
   };
 }
 
+function shouldDeferMetricToTermExplain(question: string): boolean {
+  const q = question.trim();
+  return (
+    /^what\s+is\s+(?:a\s+|an\s+|the\s+)?/i.test(q) &&
+    !/\bmy\b/i.test(q) &&
+    !/per\s+(week|day|month|year)/i.test(q) &&
+    !/calculated/i.test(q) &&
+    !/how much|how many/i.test(q) &&
+    !/per\s+(spot|seat|class|client|session)/i.test(q) &&
+    matchModelMetric(q) != null
+  );
+}
+
 function answerMetricQuery(question: string, ctx: AskOwnedContext): OwnedAnswer | null {
   const metric = matchModelMetric(question);
   if (!metric) return null;
@@ -123,10 +137,12 @@ function answerMetricQuery(question: string, ctx: AskOwnedContext): OwnedAnswer 
 
   const value = metric.getValue(ctx.model, ctx.assumptions);
   const target = parseTargetPeriod(question);
-  const body = [
-    formatMetricAnswer(metric, value, target),
-    metric.formula ? `\nFormula: ${metric.formula}` : "",
-  ].join("");
+
+  const lines = [formatMetricAnswer(metric, value, target)];
+  if (metric.formula) {
+    lines.push("", "FORMULA IN OWNED", "", metric.formula);
+  }
+  const body = lines.join("\n");
 
   const snapshot: CalculationSnapshot = {
     kind: "metric",
@@ -374,6 +390,15 @@ export function tryAnswerMathQuestion(question: string, ctx: AskOwnedContext): O
 
   const fundingBudget = answerFundingBudgetQuestion(q, ctx);
   if (fundingBudget) return fundingBudget;
+
+  if (isCalculationQuestion(q)) {
+    const calc = answerCalculationQuestion(q, ctx);
+    if (calc) return calc;
+  }
+
+  if (shouldDeferMetricToTermExplain(q)) {
+    return null;
+  }
 
   const conversion = answerPeriodConversion(q, ctx);
   if (conversion) return conversion;

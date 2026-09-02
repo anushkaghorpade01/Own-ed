@@ -2,7 +2,10 @@ import { d, sum, trace, type CalculationTrace } from "../decimal";
 import type { FinanceAssumptions } from "../schemas";
 import Decimal from "decimal.js";
 import { splitServiceDemandSpots } from "./service-demand-mix";
-import { privateDirectVariableCostPerSession } from "./private-economics";
+import {
+  privateDirectVariableCostPerSession,
+  privateSessionConsumables,
+} from "./private-economics";
 
 function sumCustomExpenses(
   assumptions: FinanceAssumptions,
@@ -40,14 +43,21 @@ export function calculateDirectCosts(
   const perAttendeeInstructor = d(assumptions.instructorPerAttendeePayout).times(
     groupAttended
   );
-  const privateInstructor = privateAttended.times(
-    privateDirectVariableCostPerSession(assumptions)
+  const privateDirectPerSession = privateDirectVariableCostPerSession(assumptions);
+  const privateConsumablesPerSession = privateSessionConsumables(assumptions);
+  const privateInstructorPerSession = Decimal.max(
+    0,
+    privateDirectPerSession.minus(privateConsumablesPerSession)
   );
+  const privateInstructor = privateAttended.times(privateInstructorPerSession);
+
   const variableInstructorPayouts = perClassInstructor
     .plus(perAttendeeInstructor)
     .plus(privateInstructor);
 
-  const sessionConsumables = d(assumptions.sessionConsumables).times(groupAttended);
+  const sessionConsumables = d(assumptions.sessionConsumables)
+    .times(groupAttended)
+    .plus(privateConsumablesPerSession.times(privateAttended));
 
   const paymentFees = grossBillings
     .times(d(assumptions.paymentGatewayPct).dividedBy(100))

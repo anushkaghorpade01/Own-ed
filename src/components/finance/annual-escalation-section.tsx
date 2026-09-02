@@ -131,9 +131,7 @@ function EscalationSectionBody() {
                       ? formatINR(payrollSample) + "/mo"
                       : rule.categoryId === "rent"
                         ? formatINR(a.rent) + "/mo"
-                        : rule.categoryId === "instructor_delivery"
-                          ? formatINR(a.instructorPerClassPayout) + "/class"
-                          : "—"}
+                        : "—"}
                   </td>
                   <td className="py-2 pr-4">
                     <div className="flex items-center gap-2">
@@ -277,8 +275,7 @@ export function AnnualEscalationSection({
         "price growth",
         "rent escalation",
         "payroll",
-        "instructor delivery",
-        "annual pct",
+        "private instructor",
       ]}
       committed={committed}
       onSave={(draft) =>

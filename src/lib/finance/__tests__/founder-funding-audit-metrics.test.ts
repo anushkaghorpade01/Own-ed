@@ -16,8 +16,8 @@ describe("founder funding audit metrics", () => {
     expect(launch.totalCashRequiredAtLaunch.toNumber()).toBe(2_835_000);
     expect(launch.openingBankCashAfterLaunch.toNumber()).toBe(-135_000);
     expect(health.lowestBankCash.toNumber()).toBeLessThan(0);
-    expect(health.fundingGap.toNumber()).toBe(592_500.6371409091);
-    expect(health.minimumTotalFundingRequired.toNumber()).toBe(3_092_500.637140909);
+    expect(health.fundingGap.toNumber()).toBe(183_268.02708409092);
+    expect(health.minimumTotalFundingRequired.toNumber()).toBe(2_683_268.0270840907);
     expect(health.totalPlannedFunding.toNumber()).toBe(2_500_000);
   });
 });

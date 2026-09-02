@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  Children,
+  useState,
+  type ReactNode,
+} from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatINR } from "@/lib/format/currency";
@@ -26,7 +30,7 @@ export function ExpandablePLRow({
   breakdown,
   defaultOpen,
 }: {
-  label: string;
+  label: ReactNode;
   value: string;
   bold?: boolean;
   indent?: boolean;
@@ -170,20 +174,24 @@ export function ExpandableYearlyGroup({
   negative?: boolean;
   explanations?: YearProfitExplanation[];
   showProfitTooltip?: boolean;
-  children: ReactNode;
+  children?: ReactNode;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen ?? false);
+  const hasChildren = Children.count(children) > 0;
 
   return (
     <div>
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => hasChildren && setOpen((prev) => !prev)}
+        disabled={!hasChildren}
         className={cn(
-          "grid w-full grid-cols-[1fr_repeat(var(--year-cols),minmax(0,1fr))] gap-2 py-1.5 text-left transition-colors hover:bg-[#FAF8F5]/80 rounded-sm",
+          "grid w-full grid-cols-[1fr_repeat(var(--year-cols),minmax(0,1fr))] gap-2 py-1.5 text-left transition-colors rounded-sm",
+          hasChildren && "hover:bg-[#FAF8F5]/80",
           indent ? "pl-4" : "",
-          bold ? "border-t border-[#E8E2D9] pt-2 font-medium" : ""
+          bold ? "border-t border-[#E8E2D9] pt-2 font-medium" : "",
+          !hasChildren && "cursor-default"
         )}
       >
         <span
@@ -192,13 +200,15 @@ export function ExpandableYearlyGroup({
             bold ? "text-[#2C2825]" : "text-[#6B6560]"
           )}
         >
-          <ChevronRight
-            className={cn(
-              "h-3.5 w-3.5 shrink-0 text-[#A39E98] transition-transform",
-              open && "rotate-90"
-            )}
-            aria-hidden
-          />
+          {hasChildren && (
+            <ChevronRight
+              className={cn(
+                "h-3.5 w-3.5 shrink-0 text-[#A39E98] transition-transform",
+                open && "rotate-90"
+              )}
+              aria-hidden
+            />
+          )}
           {label}
         </span>
         {years.map((y) => {
@@ -225,7 +235,9 @@ export function ExpandableYearlyGroup({
           return <YearlyCell key={y.year} value={formatted} yoy={yoyLabel} />;
         })}
       </button>
-      {open && <div className="space-y-0.5 border-l border-[#E8E2D9] ml-4 mb-1">{children}</div>}
+      {open && hasChildren && (
+        <div className="space-y-0.5 border-l border-[#E8E2D9] ml-4 mb-1">{children}</div>
+      )}
     </div>
   );
 }

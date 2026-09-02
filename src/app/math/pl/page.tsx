@@ -13,7 +13,10 @@ import {
   PLANNING_NET_PROFIT_TOOLTIP,
   PROFIT_VIEWS_GUIDE_HREF,
   STEADY_STATE_PL_TOOLTIP,
+  INCOME_TAX_LINE_TOOLTIP,
+  incomeTaxLineLabel,
 } from "@/lib/finance/profit-view-copy";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import type { YearlyPLRow } from "@/lib/finance/engine/yearly-pl";
 import {
   ExpandablePLRow,
@@ -92,6 +95,8 @@ export default function PLPage() {
     () => getDepreciationBreakdown(model.assumptions),
     [model.assumptions]
   );
+  const taxRatePct = model.assumptions.incomeTaxRatePct;
+  const incomeTaxLabel = incomeTaxLineLabel(taxRatePct);
 
   return (
     <div>
@@ -180,6 +185,20 @@ export default function PLPage() {
               value={`(${formatINR(pl.interestExpense)})`}
               indent
             />
+            <ExpandablePLRow
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  {incomeTaxLabel}
+                  <InfoTooltip content={INCOME_TAX_LINE_TOOLTIP} label="How income tax is calculated" />
+                </span>
+              }
+              value={
+                pl.incomeTax.isPositive()
+                  ? `(${formatINR(pl.incomeTax)})`
+                  : formatINR(pl.incomeTax)
+              }
+              indent
+            />
             <ExpandablePLRow label="Planning net profit" value={formatINR(pl.netProfit)} bold />
             <p className="text-caption mt-1 pl-0 text-[var(--text-muted)]">{PLANNING_NET_PROFIT_TOOLTIP}</p>
             <p className="text-caption mt-2 text-[var(--text-muted)]">
@@ -252,12 +271,14 @@ export default function PLPage() {
                 negative
                 indent
               >
-                <YearlyDetailRow
-                  label="Instructor delivery"
-                  years={yearly.years}
-                  pick={(y) => y.instructorDelivery}
-                  negative
-                />
+                {yearly.years.some((y) => y.instructorDelivery.gt(0)) && (
+                  <YearlyDetailRow
+                    label="Instructor delivery"
+                    years={yearly.years}
+                    pick={(y) => y.instructorDelivery}
+                    negative
+                  />
+                )}
                 <YearlyDetailRow
                   label="Consumables"
                   years={yearly.years}
@@ -313,6 +334,35 @@ export default function PLPage() {
               <YearlyRow label="Operating profit / EBITDA" years={yearly.years} pick={(y) => y.ebitda} bold />
 
               <div className="my-3" />
+              <YearlyRow
+                label="Depreciation"
+                years={yearly.years}
+                pick={(y) => y.depreciation}
+                indent
+                negative
+              />
+              <YearlyRow
+                label="Interest expense"
+                years={yearly.years}
+                pick={(y) => y.interestExpense}
+                indent
+                negative
+              />
+              <div
+                className={`grid grid-cols-[1fr_repeat(var(--year-cols),minmax(0,1fr))] gap-2 py-1.5 pl-4`}
+              >
+                <span className="inline-flex items-center gap-1.5 text-[#6B6560]">
+                  {incomeTaxLabel}
+                  <InfoTooltip content={INCOME_TAX_LINE_TOOLTIP} label="How income tax is calculated" />
+                </span>
+                {yearly.years.map((y) => (
+                  <div key={y.year} className="text-right text-[#6B6560]">
+                    {y.incomeTax.isPositive()
+                      ? `(${formatINR(y.incomeTax)})`
+                      : formatINR(y.incomeTax)}
+                  </div>
+                ))}
+              </div>
               <ExpandableYearlyGroup
                 label="Planning net profit"
                 years={yearly.years}
@@ -321,20 +371,7 @@ export default function PLPage() {
                 explanations={yearly.yearExplanations}
                 showProfitTooltip
                 bold
-              >
-                <YearlyDetailRow
-                  label="Depreciation"
-                  years={yearly.years}
-                  pick={(y) => y.depreciation}
-                  negative
-                />
-                <YearlyDetailRow
-                  label="Interest expense"
-                  years={yearly.years}
-                  pick={(y) => y.interestExpense}
-                  negative
-                />
-              </ExpandableYearlyGroup>
+              />
               <YearlyRow
                 label="Net profit margin"
                 years={yearly.years}

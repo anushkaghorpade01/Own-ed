@@ -477,7 +477,7 @@ export const FinanceAssumptionsSchema = z.object({
   refreshments: z.number().min(0).default(5000),
   paymentGatewayPct: z.number().min(0).max(100).default(2),
   paymentGatewayFixedFee: z.number().min(0).default(0),
-  instructorPerClassPayout: z.number().min(0).default(500),
+  instructorPerClassPayout: z.number().min(0).default(0),
   instructorPerAttendeePayout: z.number().min(0).default(0),
   customerAcquisitionSpend: z.number().min(0).default(15000),
   repairsReserve: z.number().min(0).default(3000),

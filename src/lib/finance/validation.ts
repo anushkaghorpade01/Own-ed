@@ -76,7 +76,17 @@ export function normalizeAssumptions(
         }))
       ).products;
       return syncFlexiblePackageMixFromServiceDemand(
-        raw.map((p) => ensureProductVersionFields(p))
+        raw.map((p) => {
+          const withVersion = ensureProductVersionFields(p);
+          if (!withVersion.privateRules) return withVersion;
+          return {
+            ...withVersion,
+            privateRules: {
+              ...withVersion.privateRules,
+              instructorCostPerHour: 0,
+            },
+          };
+        })
       );
     })(),
     standingSpotEnabled: cleaned.standingSpotEnabled ?? base.standingSpotEnabled ?? false,
@@ -90,7 +100,12 @@ export function normalizeAssumptions(
 
   const parsed = FinanceAssumptionsSchema.safeParse(merged);
   const normalized = parsed.success ? parsed.data : base;
-  return migratePricingSemantics(ensureBaseCaseMixProducts(normalized));
+  const withMix = migratePricingSemantics(ensureBaseCaseMixProducts(normalized));
+  return {
+    ...withMix,
+    instructorPerClassPayout: 0,
+    instructorPerAttendeePayout: 0,
+  };
 }
 
 export function validateAssumptions(

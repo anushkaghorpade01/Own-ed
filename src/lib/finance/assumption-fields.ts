@@ -47,8 +47,8 @@ export const ANCILLARY_REVENUE_FIELDS: Array<{ key: string; label: string; suffi
   { key: "otherRevenuePerMonth", label: "Other revenue", suffix: "₹/mo" },
 ];
 
-export const TAX_FIELDS: Array<{ key: string; label: string; suffix?: string }> = [
-  { key: "incomeTaxRatePct", label: "Income tax rate", suffix: "%" },
+export const TAX_FIELDS: Array<{ key: string; label: string; suffix?: string; help?: string }> = [
+  { key: "incomeTaxRatePct", label: "Income tax rate", suffix: "%", help: "Planning rate applied to profit before tax on the P&L. Review with your CA — 25% is a default placeholder." },
   { key: "creditBreakageRecognitionPct", label: "Breakage recognition", suffix: "%" },
 ];
 
