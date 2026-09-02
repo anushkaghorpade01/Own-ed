@@ -13,6 +13,7 @@ import {
   getCoreSalesProducts,
   runSalesTargetAnalysis,
   solveSalesForProfitTarget,
+  suggestSalesMixFromServiceDemand,
 } from "../engine/sales-client-target";
 import {
   expectedCreditsRedeemedInMonth,
@@ -252,7 +253,7 @@ describe("Sales & Client Target engine", () => {
     const analysis = runSalesTargetAnalysis(createSampleAssumptions(), {
       targetMonthlyNetProfit: 200_000,
     });
-    const sol = analysis.primarySolution;
+    const sol = analysis.suggestedMix;
     const sumNet = sol.productRows.reduce(
       (acc, r) => acc.plus(r.netSales),
       new Decimal(0)
@@ -272,5 +273,19 @@ describe("Sales & Client Target engine", () => {
     expect(sol.planningNetProfit.toNumber()).toBeGreaterThan(
       recomputedEbitda.minus(sol.operatingExpenses.times(0.5)).toNumber()
     );
+  });
+
+  it("service mix suggestion uses multiple products, not one plan only", () => {
+    const assumptions = createSampleAssumptions();
+    const quantities = suggestSalesMixFromServiceDemand(assumptions, 200_000, 8);
+    const productsWithSales = Object.entries(quantities).filter(([, q]) => q > 0);
+    expect(productsWithSales.length).toBeGreaterThan(1);
+
+    const dropInOnly = suggestSalesMixFromServiceDemand(assumptions, 200_000, 8);
+    const greedySingle = solveSalesForProfitTarget(assumptions, 200_000, "lowest_client_count", 8);
+    const dropInOnlyCount = Object.values(dropInOnly).filter((q) => q > 0).length;
+    const greedySingleCount = Object.values(greedySingle).filter((q) => q > 0).length;
+    expect(dropInOnlyCount).toBeGreaterThan(1);
+    expect(greedySingleCount).toBeLessThanOrEqual(1);
   });
 });

@@ -14,18 +14,12 @@ import {
   evaluateSalesPlan,
   getCoreSalesProducts,
   calculateAcquisitionFunnel,
-  type SalesSolutionMode,
+  buildServiceDemandMixPct,
   type SalesTargetSolution,
   type CapacityStatus,
 } from "@/lib/finance/engine/sales-client-target";
 import { SalesTargetPreferencesSchema } from "@/lib/finance/schemas";
 import { cn } from "@/lib/cn";
-
-const SOLUTION_MODES: { id: SalesSolutionMode; label: string }[] = [
-  { id: "balanced", label: "Balanced" },
-  { id: "profit_maximising", label: "Profit maximising" },
-  { id: "lowest_client_count", label: "Lowest client count" },
-];
 
 const CAPACITY_STYLE: Record<CapacityStatus, string> = {
   feasible: "bg-emerald-50 text-emerald-800",
@@ -71,10 +65,10 @@ function ProfitSummary({
         <span>Operating expenses</span>
         <strong>{formatINR(sol.operatingExpenses)}</strong>
       </div>
-      <div className="flex justify-between text-body-sm">
-        <span>vs target ({formatINR(targetProfit)})</span>
+      <div className="flex justify-between text-body-sm sm:col-span-2">
+        <span>Gap to target ({formatINR(targetProfit)})</span>
         <strong className={cn(gap >= 0 ? "text-emerald-800" : "text-red-800")}>
-          {gap >= 0 ? `+${formatINR(gap)}` : formatINR(gap)}
+          {gap >= 0 ? `+${formatINR(gap)} above` : `${formatINR(Math.abs(gap))} short`}
         </strong>
       </div>
       <div className="flex justify-between text-body-sm">
@@ -107,10 +101,14 @@ export default function SalesTargetPage() {
 
   const [targetProfit, setTargetProfit] = useState(prefs.targetMonthlyNetProfit);
   const [targetMonth, setTargetMonth] = useState(prefs.targetMonth);
-  const [solutionMode, setSolutionMode] = useState<SalesSolutionMode>(prefs.solutionMode);
 
   const products = useMemo(
     () => getCoreSalesProducts(state.assumptions),
+    [state.assumptions]
+  );
+
+  const serviceMixPct = useMemo(
+    () => buildServiceDemandMixPct(state.assumptions),
     [state.assumptions]
   );
 
@@ -119,13 +117,9 @@ export default function SalesTargetPage() {
       runSalesTargetAnalysis(state.assumptions, {
         targetMonthlyNetProfit: targetProfit,
         targetMonth,
-        solutionMode,
       }),
-    [state.assumptions, targetProfit, targetMonth, solutionMode]
+    [state.assumptions, targetProfit, targetMonth]
   );
-
-  const sol =
-    analysis.solutions.find((s) => s.mode === solutionMode) ?? analysis.primarySolution;
 
   const parsedPrefs = SalesTargetPreferencesSchema.parse(prefs);
   const [customQuantities, setCustomQuantities] = useState<Record<string, number>>(() => {
@@ -151,7 +145,7 @@ export default function SalesTargetPage() {
   );
 
   const funnel = calculateAcquisitionFunnel(
-    Math.ceil(sol.clients.newCustomersNeededThisMonth.toNumber()),
+    Math.ceil(customSol.clients.newCustomersNeededThisMonth.toNumber()),
     analysis.preferences
   );
 
@@ -161,33 +155,42 @@ export default function SalesTargetPage() {
         ...prefs,
         targetMonthlyNetProfit: targetProfit,
         targetMonth,
-        solutionMode,
         customSalesQuantitiesByProductId: quantities ?? customQuantities,
       }),
     });
   };
 
-  const applyRecommendedToMix = () => {
+  const applyQuantities = (quantities: Record<string, number>) => {
+    setCustomQuantities(quantities);
+    persistPrefs(quantities);
+  };
+
+  const suggestFromServiceMix = () => {
     const next = Object.fromEntries(
-      sol.quantities.map((q) => [q.productId, q.quantity])
+      analysis.suggestedMix.quantities.map((q) => [q.productId, q.quantity])
     );
-    setCustomQuantities(next);
-    persistPrefs(next);
+    applyQuantities(next);
+  };
+
+  const loadForecast = () => {
+    const next = Object.fromEntries(
+      products.map((p) => [p.id, analysis.forecastSalesByProduct[p.id] ?? 0])
+    );
+    applyQuantities(next);
   };
 
   const setQuantity = (productId: string, value: number) => {
     const qty = Math.max(0, Math.floor(value));
-    setCustomQuantities((prev) => {
-      const next = { ...prev, [productId]: qty };
-      return next;
-    });
+    setCustomQuantities((prev) => ({ ...prev, [productId]: qty }));
   };
+
+  const profitGap = customSol.planningNetProfit.toNumber() - targetProfit;
 
   return (
     <div>
       <SectionHeader
         title="Sales & Client Target"
-        description="Tell Own-ed how much you want the studio to make — or enter your own sales mix and see what profit it produces."
+        description="Set how many of each product you plan to sell, then see whether you hit your profit target and what capacity that implies."
       />
       <SampleBanner />
 
@@ -244,105 +247,102 @@ export default function SalesTargetPage() {
             className="mt-1 max-w-[120px]"
           />
         </div>
-
-        <div className="mt-4">
-          <p className="text-label mb-1">Recommended plan — solution mode</p>
-          <div className="flex flex-wrap gap-2">
-            {SOLUTION_MODES.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSolutionMode(id)}
-                className={cn(
-                  "rounded-md px-2 py-1 text-body-sm",
-                  solutionMode === id
-                    ? "bg-[var(--text-primary)] text-white"
-                    : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
       </section>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <div className="card-surface">
           <p className="text-label">Current forecast profit</p>
           <p className="text-kpi mt-1">{formatINR(analysis.forecastProfit)}</p>
+          <p className="text-caption mt-1 text-[var(--text-muted)]">Month {targetMonth} P&amp;L</p>
         </div>
         <div className="card-surface">
-          <p className="text-label">Target</p>
+          <p className="text-label">Your target</p>
           <p className="text-kpi mt-1">{formatINR(analysis.targetProfit)}</p>
         </div>
         <div className="card-surface">
-          <p className="text-label">Profit gap (forecast)</p>
+          <p className="text-label">Forecast gap to close</p>
           <p className="text-kpi mt-1">
             {analysis.profitGap.lte(0) ? "On target" : formatINR(analysis.profitGap)}
           </p>
         </div>
       </div>
 
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
-        <section className="card-surface">
-          <p className="text-label">Recommended — to hit your target</p>
-          <p className="text-h2 mt-1 capitalize">{solutionMode.replace(/_/g, " ")} plan</p>
-          <div className="mt-4 grid gap-2">
-            {sol.quantities.map((q) => (
-              <div key={q.productId} className="flex justify-between text-body-sm">
-                <span>{q.productName}</span>
-                <strong className="text-tabular">{q.quantity}</strong>
-              </div>
-            ))}
+      <section className="card-surface mb-4 border-2 border-[var(--border-subtle)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-label">Your sales plan</p>
+            <p className="text-caption mt-1 text-[var(--text-muted)]">
+              Enter how many of each you plan to sell this month. Mix should reflect how a real
+              studio runs — not one product alone.
+            </p>
           </div>
-          <ProfitSummary
-            sol={sol}
-            targetProfit={targetProfit}
-            label="Planning net profit"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={applyRecommendedToMix}
-          >
-            Copy to your mix below
-          </Button>
-        </section>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={loadForecast}>
+              Load current forecast
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={suggestFromServiceMix}>
+              Suggest from service mix
+            </Button>
+          </div>
+        </div>
 
-        <section className="card-surface border-2 border-[var(--border-subtle)]">
-          <p className="text-label">Your mix — try your own numbers</p>
-          <p className="text-caption mt-1 text-[var(--text-muted)]">
-            Enter how many of each you plan to sell. Profit updates instantly.
-          </p>
-          <div className="mt-4 space-y-3">
-            {products.map((p) => (
-              <div key={p.id} className="flex items-center justify-between gap-4">
+        <p className="text-caption mt-3 text-[var(--text-muted)]">
+          Service demand mix weights:{" "}
+          {products
+            .map((p) => `${p.name} ${serviceMixPct[p.id]?.toFixed(0) ?? 0}%`)
+            .join(" · ")}
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {products.map((p) => (
+            <div key={p.id} className="flex items-center justify-between gap-4">
+              <div>
                 <span className="text-body-sm">{p.name}</span>
-                <Input
-                  type="number"
-                  min={0}
-                  value={customQuantities[p.id] ?? 0}
-                  onChange={(e) => setQuantity(p.id, parseInt(e.target.value, 10) || 0)}
-                  onBlur={() => persistPrefs()}
-                  className="max-w-[100px] text-right text-tabular"
-                />
+                <span className="text-caption ml-2 text-[var(--text-muted)]">
+                  {serviceMixPct[p.id]?.toFixed(0) ?? 0}% of bookings
+                </span>
               </div>
-            ))}
-          </div>
-          <ProfitSummary
-            sol={customSol}
-            targetProfit={targetProfit}
-            label="Profit from your mix"
-          />
-        </section>
-      </div>
+              <Input
+                type="number"
+                min={0}
+                value={customQuantities[p.id] ?? 0}
+                onChange={(e) => setQuantity(p.id, parseInt(e.target.value, 10) || 0)}
+                onBlur={() => persistPrefs()}
+                className="max-w-[100px] text-right text-tabular"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div
+          className={cn(
+            "mt-4 rounded-lg px-3 py-2 text-body-sm",
+            profitGap >= 0 ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"
+          )}
+        >
+          {profitGap >= 0 ? (
+            <>
+              Your plan delivers {formatINR(customSol.planningNetProfit)} —{" "}
+              {formatINR(profitGap)} above target.
+            </>
+          ) : (
+            <>
+              Your plan delivers {formatINR(customSol.planningNetProfit)} —{" "}
+              {formatINR(Math.abs(profitGap))} short of target. Adjust quantities above.
+            </>
+          )}
+        </div>
+
+        <ProfitSummary
+          sol={customSol}
+          targetProfit={targetProfit}
+          label="Planning net profit from your mix"
+        />
+      </section>
 
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
         <section className="card-surface">
-          <p className="text-label">Your mix — sales breakdown</p>
+          <p className="text-label">Sales breakdown</p>
           <FinanceTable headers={["Product", "Sales", "Net sales", "Contribution"]}>
             {customSol.productRows.length === 0 ? (
               <FinanceTableRow cells={["Enter quantities above", "—", "—", "—"]} />
@@ -367,7 +367,7 @@ export default function SalesTargetPage() {
         </section>
 
         <section className="card-surface">
-          <p className="text-label">Your mix — delivery check</p>
+          <p className="text-label">Delivery check</p>
           <div className="mt-3 grid gap-2 text-body-sm">
             <div className="flex justify-between">
               <span>Credits sold</span>
@@ -378,6 +378,10 @@ export default function SalesTargetPage() {
               <strong>{customSol.delivery.expectedRedemptionsFromNewSales.toFixed(0)}</strong>
             </div>
             <div className="flex justify-between">
+              <span>Private sessions</span>
+              <strong>{customSol.delivery.privateBookings.toFixed(0)}</strong>
+            </div>
+            <div className="flex justify-between">
               <span>Total reformer demand</span>
               <strong>{customSol.delivery.totalReformerDemand.toFixed(0)} spots</strong>
             </div>
@@ -386,48 +390,53 @@ export default function SalesTargetPage() {
               <strong>{customSol.delivery.availableReformerSpots.toFixed(0)} spots</strong>
             </div>
           </div>
+          {customSol.delivery.peakTimeWarning && (
+            <p className="text-caption mt-3 text-amber-800">{customSol.delivery.peakTimeWarning}</p>
+          )}
+          {customSol.delivery.futureMonthWarnings.map((w) => (
+            <p key={w} className="text-caption mt-2 text-amber-800">
+              {w}
+            </p>
+          ))}
         </section>
       </div>
 
-      <section className="card-surface mb-4">
-        <p className="text-label">Other ways to hit this target</p>
-        <div className="mt-3 space-y-4">
-          {analysis.solutions
-            .filter((s) => s.mode !== solutionMode)
-            .map((alt) => (
-              <div key={alt.mode} className="rounded-md bg-[var(--surface-muted)] p-3">
-                <p className="font-medium capitalize">{alt.mode.replace(/_/g, " ")}</p>
-                <p className="text-body-sm mt-1 text-[var(--text-secondary)]">
-                  {alt.quantities
-                    .filter((q) => q.quantity > 0)
-                    .map((q) => `${q.productName}: ${q.quantity}`)
-                    .join(" · ")}{" "}
-                  → {formatINR(alt.planningNetProfit)} profit
-                </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => {
-                    setSolutionMode(alt.mode);
-                    const next = Object.fromEntries(
-                      alt.quantities.map((q) => [q.productId, q.quantity])
-                    );
-                    setCustomQuantities(next);
-                    persistPrefs(next);
-                  }}
-                >
-                  Use this plan
-                </Button>
-              </div>
-            ))}
-        </div>
-      </section>
+      {analysis.requiredVsForecast.some((r) => r.gap !== 0) && (
+        <section className="card-surface mb-4">
+          <p className="text-label">Service-mix suggestion vs forecast</p>
+          <p className="text-caption mt-1 text-[var(--text-muted)]">
+            If you scaled sales to hit target while keeping your service demand mix — for
+            comparison only. Edit your plan above to match what you actually expect to sell.
+          </p>
+          <FinanceTable
+            headers={["Product", "Your plan", "Forecast", "Mix suggestion", "Gap vs forecast"]}
+            className="mt-3"
+          >
+            {products.map((p) => {
+              const yours = customQuantities[p.id] ?? 0;
+              const row = analysis.requiredVsForecast.find((r) => r.productId === p.id);
+              const forecast = row?.forecast ?? 0;
+              const suggested = row?.required ?? 0;
+              return (
+                <FinanceTableRow
+                  key={p.id}
+                  cells={[
+                    p.name,
+                    String(yours),
+                    String(forecast),
+                    String(suggested),
+                    String(yours - forecast),
+                  ]}
+                />
+              );
+            })}
+          </FinanceTable>
+        </section>
+      )}
 
       {funnel && (
         <section className="card-surface mb-4">
-          <p className="text-label">Customer acquisition (recommended plan)</p>
+          <p className="text-label">Customer acquisition (your plan)</p>
           <div className="mt-2 space-y-1 font-mono text-body-sm">
             {funnel.steps.map((step, i) => (
               <p key={i}>{step}</p>
@@ -440,9 +449,14 @@ export default function SalesTargetPage() {
         trigger="How is this calculated?"
         sections={[
           {
-            title: "Two directions",
+            title: "Your plan drives everything",
             content:
-              "Recommended plan works backwards from your profit target using integer sales (balanced, profit maximising, or lowest client count). Your mix works forwards — enter Drop-In purchases, pack sales, and Private sessions to see planning net profit, capacity demand, and gap vs target.",
+              "Enter Drop-In purchases, pack sales, and Private sessions. Own-ed calculates planning net profit, capacity demand, and gap vs your target from those numbers.",
+          },
+          {
+            title: "Suggest from service mix",
+            content:
+              "Optional starting point: scales sales to hit your profit target while preserving the service demand mix from Access Products (Drop-In, packs, Private shares). Adjust from there to match what you actually expect.",
           },
         ]}
       />

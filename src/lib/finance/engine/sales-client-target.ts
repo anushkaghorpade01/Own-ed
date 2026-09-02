@@ -18,7 +18,7 @@ import {
 } from "./flexible-packs";
 import { privateContributionPerSession, privateDirectVariableCostPerSession } from "./private-economics";
 import { productNetPrice } from "./product-pricing";
-import { getPrivateProduct, listBaseCaseMixProducts } from "./service-demand-mix";
+import { getPrivateProduct, listBaseCaseMixProducts, getServiceDemandPct } from "./service-demand-mix";
 import { calculateCapacity } from "./capacity";
 import { calculateOperatingExpenses } from "./costs";
 import { calculatePL } from "./pl";
@@ -106,9 +106,10 @@ export interface SalesTargetAnalysis {
   targetProfit: Decimal;
   forecastProfit: Decimal;
   profitGap: Decimal;
-  solutions: SalesTargetSolution[];
-  primarySolution: SalesTargetSolution;
-  requiredVsForecast?: Array<{
+  /** Proportional mix suggestion using service demand weights — starting point only */
+  suggestedMix: SalesTargetSolution;
+  forecastSalesByProduct: Record<string, number>;
+  requiredVsForecast: Array<{
     productId: string;
     productName: string;
     required: number;
@@ -716,7 +717,46 @@ export function evaluateSalesPlan(
   );
 }
 
-function forecastSalesByProduct(assumptions: FinanceAssumptions): Record<string, number> {
+/** Service demand mix % per core product — sums to 100 within base-case services. */
+export function buildServiceDemandMixPct(
+  assumptions: FinanceAssumptions
+): Record<string, number> {
+  const products = getCoreSalesProducts(assumptions);
+  const weights: Record<string, number> = {};
+  for (const p of products) {
+    weights[p.id] = getServiceDemandPct(p);
+  }
+  const total = Object.values(weights).reduce((a, b) => a + b, 0);
+  if (total <= 0) {
+    for (const p of products) weights[p.id] = 100 / Math.max(1, products.length);
+    return weights;
+  }
+  for (const id of Object.keys(weights)) {
+    weights[id] = (weights[id] / total) * 100;
+  }
+  return weights;
+}
+
+/**
+ * Suggest sales quantities that hit the profit target while preserving service demand mix.
+ * Uses round-robin allocation by mix deficit — never collapses to a single product unless
+ * the mix itself is 100% one product.
+ */
+export function suggestSalesMixFromServiceDemand(
+  assumptions: FinanceAssumptions,
+  targetProfit: number,
+  targetMonth: number,
+  prefsOverride?: Partial<SalesTargetPreferences>
+): Record<string, number> {
+  const mixPct = buildServiceDemandMixPct(assumptions);
+  return solveSalesForProfitTarget(assumptions, targetProfit, "balanced", targetMonth, {
+    ...prefsOverride,
+    salesMixMode: "custom",
+    customSalesMixPct: mixPct,
+  });
+}
+
+export function forecastSalesByProduct(assumptions: FinanceAssumptions): Record<string, number> {
   const map: Record<string, number> = {};
   for (const p of listFlexiblePacks(assumptions)) {
     const rules = resolvePackRules(p);
@@ -745,35 +785,23 @@ export function runSalesTargetAnalysis(
   const forecastProfit = forecastModel.pl.netProfit;
   const profitGap = targetProfit.minus(forecastProfit);
 
-  const modes: SalesSolutionMode[] = [
+  const suggestedQuantities = suggestSalesMixFromServiceDemand(
+    assumptions,
+    prefs.targetMonthlyNetProfit,
+    targetMonth,
+    prefs
+  );
+  const suggestedMix = buildSolution(
+    assumptions,
+    suggestedQuantities,
     "balanced",
-    "profit_maximising",
-    "lowest_client_count",
-  ];
-
-  const solutions = modes.map((mode) => {
-    const quantities = solveSalesForProfitTarget(
-      assumptions,
-      prefs.targetMonthlyNetProfit,
-      mode,
-      targetMonth,
-      { ...prefs, solutionMode: mode }
-    );
-    return buildSolution(
-      assumptions,
-      quantities,
-      mode,
-      prefs.targetMonthlyNetProfit,
-      targetMonth,
-      prefs
-    );
-  });
-
-  const primarySolution =
-    solutions.find((s) => s.mode === prefs.solutionMode) ?? solutions[0];
+    prefs.targetMonthlyNetProfit,
+    targetMonth,
+    prefs
+  );
 
   const forecastSales = forecastSalesByProduct(monthAssumptions);
-  const requiredVsForecast = primarySolution.quantities.map((q) => ({
+  const requiredVsForecast = suggestedMix.quantities.map((q) => ({
     productId: q.productId,
     productName: q.productName,
     required: q.quantity,
@@ -787,8 +815,8 @@ export function runSalesTargetAnalysis(
     targetProfit,
     forecastProfit,
     profitGap,
-    solutions,
-    primarySolution,
+    suggestedMix,
+    forecastSalesByProduct: forecastSales,
     requiredVsForecast,
     engineVersion: SALES_TARGET_ENGINE_VERSION,
   };
