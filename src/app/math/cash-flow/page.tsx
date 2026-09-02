@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 import { useFinanceModel } from "@/hooks/use-finance-model";
 import { SectionHeader, SampleBanner, MetricCard } from "@/components/shared/metric-card";
@@ -8,15 +7,13 @@ import { formatINR } from "@/lib/format/currency";
 import { OPERATING_CASH_INFLOW_BASIS } from "@/lib/finance/cash-basis";
 import {
   buildBankCashSeries,
-  buildInvestmentRecoverySeries,
 } from "@/lib/finance/engine/investment-recovery";
 import { formatRecoveryPositionInr } from "@/components/finance/cash-flow-chart-tooltips";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CashFlowCalculationExplainer } from "@/components/finance/cash-flow-explainer";
+import { InvestmentRecoveryForecastCard } from "@/components/finance/investment-recovery-forecast-card";
 import {
   BankCashTooltip,
-  InvestmentRecoveryTooltip,
 } from "@/components/finance/cash-flow-chart-tooltips";
 import {
   LineChart,
@@ -28,6 +25,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
+import { useMemo } from "react";
 
 export default function CashFlowPage() {
   const model = useFinanceModel();
@@ -39,20 +37,6 @@ export default function CashFlowPage() {
   const month36 = cf.monthly.find((m) => m.month === 36) ?? cf.monthly[cf.monthly.length - 1];
   const month36Position = month36?.recoveryPosition.toNumber() ?? 0;
   const month36Display = formatRecoveryPositionInr(month36Position);
-  const month1Display = month1
-    ? formatRecoveryPositionInr(month1.recoveryPosition.toNumber())
-    : null;
-
-  const investmentChartData = useMemo(() => {
-    const series = buildInvestmentRecoverySeries(cf.monthly, launch.paybackInvestmentBase);
-    return series.map((row) => ({
-      month: row.month,
-      recoveryPosition: row.recoveryPosition.toNumber(),
-      monthOperatingCash: row.monthOperatingCash.toNumber(),
-      cumulativeOperatingCashGenerated: row.cumulativeOperatingCashGenerated.toNumber(),
-      initialInvestment: launch.paybackInvestmentBase.toNumber(),
-    }));
-  }, [cf.monthly, launch.paybackInvestmentBase]);
 
   const bankChartData = useMemo(() => {
     return buildBankCashSeries(cf.monthly, launch.openingBankCashAfterLaunch).map((row, i) => {
@@ -121,51 +105,7 @@ export default function CashFlowPage() {
         />
       </div>
 
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle>Investment recovery — 36 month forecast</CardTitle>
-          <p className="text-xs text-[#6B6560]">
-            How long cumulative operating cash takes to recover your initial investment. Month 0 =
-            full hurdle. ₹0 line = initial investment fully recovered. Above zero = net cash above
-            investment. Excludes founder equity and loan proceeds.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={investmentChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E8E2D9" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#A39E98" }} />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#A39E98" }}
-                  tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`}
-                />
-                <Tooltip content={<InvestmentRecoveryTooltip />} />
-                <ReferenceLine
-                  y={0}
-                  stroke="#C4A882"
-                  strokeDasharray="3 3"
-                  label={{
-                    value: "Investment recovered",
-                    position: "insideTopRight",
-                    fontSize: 10,
-                    fill: "#6B6560",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="recoveryPosition"
-                  name="Recovery position"
-                  stroke="#2C2825"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <CashFlowCalculationExplainer month={1} />
-        </CardContent>
-      </Card>
+      <InvestmentRecoveryForecastCard chartVariant="line" className="mt-4" />
 
       <Card className="mt-6">
         <CardHeader>
