@@ -5,6 +5,7 @@ import { beforeEach, describe, it, expect, vi } from "vitest";
 import "fake-indexeddb/auto";
 import { resetDbForTests, idbClearStore, STORE } from "../local/db";
 import { persistenceService, appStateToPayload, payloadToAppState } from "../local/persistence-service";
+import { countPayloadRecords } from "../local/app-state-bridge";
 import { defaultAppState } from "@/lib/store/default-state";
 import { migrateFromLocalStorageIfNeeded } from "../local/migrate-from-localStorage";
 import { saveAssetBlob, getAssetBlobUrl, countAssets } from "../local/asset-store";
@@ -145,5 +146,22 @@ describe("IndexedDB persistence", () => {
     const roundTrip = payloadToAppState(payload);
     expect(roundTrip.mathReviewItems).toHaveLength(1);
     expect(roundTrip.mathReviewItems[0].title).toBe("Check EBITDA");
+  });
+
+  it("countPayloadRecords handles legacy payloads missing programmingItems", () => {
+    const payload = appStateToPayload(defaultAppState());
+    const legacy = {
+      ...payload,
+      extensions: {
+        mathReviewItems: payload.extensions.mathReviewItems,
+        productConcepts: payload.extensions.productConcepts,
+        brandItems: payload.extensions.brandItems,
+        spaceImages: payload.extensions.spaceImages,
+        productVersionHistory: payload.extensions.productVersionHistory,
+      },
+    } as typeof payload;
+
+    expect(() => countPayloadRecords(legacy)).not.toThrow();
+    expect(payloadToAppState(legacy).programmingItems).toEqual([]);
   });
 });

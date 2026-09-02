@@ -6,6 +6,19 @@ import type { LocalDbPayload, LegacyAppState } from "../types";
 import { migrateLegacyAppState, denormalizeToLegacyShape } from "../migration/local-to-normalized";
 import { DB_VERSION } from "./db";
 
+function normalizePayloadExtensions(
+  extensions: LocalDbPayload["extensions"] | undefined
+): LocalDbPayload["extensions"] {
+  return {
+    mathReviewItems: extensions?.mathReviewItems ?? [],
+    productConcepts: extensions?.productConcepts ?? [],
+    programmingItems: extensions?.programmingItems ?? [],
+    brandItems: extensions?.brandItems ?? [],
+    spaceImages: extensions?.spaceImages ?? [],
+    productVersionHistory: extensions?.productVersionHistory ?? {},
+  };
+}
+
 export function appStateToLegacy(state: AppState): LegacyAppState & {
   mathReviewItems: AppState["mathReviewItems"];
   brandItems: AppState["brandItems"];
@@ -41,7 +54,7 @@ export function appStateToPayload(state: AppState): LocalDbPayload {
 
 export function payloadToAppState(payload: LocalDbPayload): AppState {
   const legacy = denormalizeToLegacyShape(payload.normalized);
-  const defaults = payload.extensions;
+  const defaults = normalizePayloadExtensions(payload.extensions);
 
   return {
     assumptions: legacy.assumptions!,
@@ -67,6 +80,7 @@ export function payloadToAppState(payload: LocalDbPayload): AppState {
 
 export function countPayloadRecords(payload: LocalDbPayload): number {
   const n = payload.normalized;
+  const ext = normalizePayloadExtensions(payload.extensions);
   return (
     n.products.length +
     n.scenarios.length +
@@ -77,11 +91,11 @@ export function countPayloadRecords(payload: LocalDbPayload): number {
     n.roadmap.length +
     n.library.length +
     n.assets.length +
-    payload.extensions.mathReviewItems.length +
-    payload.extensions.productConcepts.length +
-    payload.extensions.programmingItems.length +
-    payload.extensions.brandItems.length +
-    payload.extensions.spaceImages.length +
+    ext.mathReviewItems.length +
+    ext.productConcepts.length +
+    ext.programmingItems.length +
+    ext.brandItems.length +
+    ext.spaceImages.length +
     1
   );
 }
