@@ -79,7 +79,8 @@ export function getRampUpOccupancy(
   }
 
   const start = d(assumptions.rampUpStartingOccupancyPct).dividedBy(100);
-  const target = d(assumptions.rampUpTargetOccupancyPct).dividedBy(100);
+  // Ramp endpoint follows booked occupancy — scenarios and P&L use the same target.
+  const target = d(assumptions.projectedBookedOccupancyPct).dividedBy(100);
   const months = assumptions.rampUpMonthsToTarget;
 
   if (month >= months) return target;

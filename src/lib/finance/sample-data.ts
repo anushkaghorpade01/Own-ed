@@ -353,7 +353,7 @@ export function createSampleAssumptions(): FinanceAssumptions {
     creditBreakageRecognitionPct: 0,
     rampUpMode: "interpolate",
     rampUpStartingOccupancyPct: 30,
-    rampUpTargetOccupancyPct: 70,
+    rampUpTargetOccupancyPct: 60,
     rampUpMonthsToTarget: 12,
     rampUpCurve: [],
   creditsSoldOutstanding: 146,
@@ -439,11 +439,13 @@ export function createSampleScenarios(base: FinanceAssumptions): Scenario[] {
     ...structuredClone(base),
     name: "Conservative",
     projectedBookedOccupancyPct: 45,
+    rampUpTargetOccupancyPct: 45,
   };
   const strongDemand = {
     ...structuredClone(base),
     name: "Strong Demand",
     projectedBookedOccupancyPct: 80,
+    rampUpTargetOccupancyPct: 80,
   };
   return [
     {

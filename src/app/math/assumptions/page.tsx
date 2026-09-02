@@ -181,7 +181,7 @@ export default function AssumptionsPage() {
 
         <CollapsibleSection title="Occupancy / Demand">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <AssumptionField label="Booked occupancy" value={a.projectedBookedOccupancyPct} onChange={(v) => updateAssumptions({ projectedBookedOccupancyPct: v })} suffix="%" help="What % of available spots get booked" />
+            <AssumptionField label="Booked occupancy" value={a.projectedBookedOccupancyPct} onChange={(v) => updateAssumptions({ projectedBookedOccupancyPct: v, rampUpTargetOccupancyPct: v })} suffix="%" help="What % of available spots get booked — also the ramp-up endpoint for payback" />
             <AssumptionField label="Attended occupancy" value={a.projectedAttendedOccupancyPct} onChange={(v) => updateAssumptions({ projectedAttendedOccupancyPct: v })} suffix="%" help="After cancellations and no-shows" />
             <AssumptionField label="Peak occupancy" value={a.peakOccupancyPct} onChange={(v) => updateAssumptions({ peakOccupancyPct: v })} suffix="%" />
             <AssumptionField label="Off-peak occupancy" value={a.offPeakOccupancyPct} onChange={(v) => updateAssumptions({ offPeakOccupancyPct: v })} suffix="%" />
@@ -289,7 +289,7 @@ export default function AssumptionsPage() {
         <CollapsibleSection title="Ramp-up">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <AssumptionField label="Starting occupancy" value={a.rampUpStartingOccupancyPct} onChange={(v) => updateAssumptions({ rampUpStartingOccupancyPct: v })} suffix="%" help="Month 1 occupancy — studio won't be full on day one" />
-            <AssumptionField label="Target occupancy" value={a.rampUpTargetOccupancyPct} onChange={(v) => updateAssumptions({ rampUpTargetOccupancyPct: v })} suffix="%" />
+            <AssumptionField label="Target occupancy" value={a.rampUpTargetOccupancyPct} onChange={(v) => updateAssumptions({ rampUpTargetOccupancyPct: v, projectedBookedOccupancyPct: v })} suffix="%" help="Ramp endpoint — kept in sync with booked occupancy" />
             <AssumptionField label="Months to target" value={a.rampUpMonthsToTarget} onChange={(v) => updateAssumptions({ rampUpMonthsToTarget: v })} />
           </div>
         </CollapsibleSection>

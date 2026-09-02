@@ -525,13 +525,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateScenarioAssumptions = useCallback(
     (id: string, updates: Partial<FinanceAssumptions>) => {
+      const synced =
+        updates.projectedBookedOccupancyPct !== undefined
+          ? {
+              ...updates,
+              rampUpTargetOccupancyPct: updates.projectedBookedOccupancyPct,
+            }
+          : updates;
       updateState((prev) => ({
         ...prev,
         scenarios: prev.scenarios.map((s) =>
           s.id === id
             ? {
                 ...s,
-                assumptions: { ...s.assumptions, ...updates, updatedAt: new Date().toISOString() },
+                assumptions: {
+                  ...s.assumptions,
+                  ...synced,
+                  updatedAt: new Date().toISOString(),
+                },
                 updatedAt: new Date().toISOString(),
               }
             : s
