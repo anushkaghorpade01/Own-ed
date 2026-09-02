@@ -161,14 +161,17 @@ export function CollapsibleSection({
   title,
   children,
   defaultOpen = false,
+  forceOpen = false,
   action,
 }: {
   title: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  forceOpen?: boolean;
   action?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const isOpen = forceOpen || open;
   return (
     <div className="card-surface bg-[var(--surface-card)]/80">
       <div className="flex items-center justify-between">
@@ -178,11 +181,11 @@ export function CollapsibleSection({
           className="flex flex-1 items-center justify-between text-left"
         >
           <span className="text-h3">{title}</span>
-          <ChevronDown className={cn("h-4 w-4 text-[var(--text-muted)] transition-transform", open && "rotate-180")} />
+          <ChevronDown className={cn("h-4 w-4 text-[var(--text-muted)] transition-transform", isOpen && "rotate-180")} />
         </button>
         {action && <div className="ml-3">{action}</div>}
       </div>
-      {open && <div className="mt-3 border-t border-[var(--border-subtle)] pt-3">{children}</div>}
+      {isOpen && <div className="mt-3 border-t border-[var(--border-subtle)] pt-3">{children}</div>}
     </div>
   );
 }

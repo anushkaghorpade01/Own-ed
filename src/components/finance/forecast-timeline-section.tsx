@@ -2,8 +2,12 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useApp } from "@/lib/store/app-store";
-import { CollapsibleSection } from "@/components/shared/metric-card";
-import { SaveableInlineNumber, SaveableTextAssumptionField } from "@/components/finance/saveable-assumption-field";
+import {
+  AssumptionSection,
+  DraftInlineNumber,
+  DraftTextField,
+  useSectionContext,
+} from "@/components/finance/assumption-section";
 import { Button } from "@/components/ui/button";
 import { resolveForecastSettings } from "@/lib/finance/engine/escalation";
 import type { ScenarioTimelinePhase } from "@/lib/finance/schemas";
@@ -18,23 +22,19 @@ function newPhase(partial?: Partial<ScenarioTimelinePhase>): ScenarioTimelinePha
   };
 }
 
-export function ForecastTimelineSection() {
-  const { state, updateAssumptions } = useApp();
+type TimelineDraft = {
+  forecastTimeline: ScenarioTimelinePhase[];
+};
+
+function ForecastTimelineBody() {
+  const { state } = useApp();
   const a = state.assumptions;
   const forecast = resolveForecastSettings(a);
-  const phases = forecast.forecastTimeline ?? [];
-
-  const updateForecast = (updates: Partial<typeof forecast>) => {
-    updateAssumptions({
-      forecastSettings: {
-        ...forecast,
-        ...updates,
-      },
-    });
-  };
+  const { draft, patch } = useSectionContext<TimelineDraft>();
+  const phases = draft.forecastTimeline;
 
   const updatePhase = (id: string, updates: Partial<ScenarioTimelinePhase>) => {
-    updateForecast({
+    patch({
       forecastTimeline: phases.map((p) => (p.id === id ? { ...p, ...updates } : p)),
     });
   };
@@ -56,7 +56,7 @@ export function ForecastTimelineSection() {
   };
 
   const addPhase = () => {
-    updateForecast({
+    patch({
       forecastTimeline: [
         ...phases,
         newPhase({
@@ -70,11 +70,11 @@ export function ForecastTimelineSection() {
   };
 
   const removePhase = (id: string) => {
-    updateForecast({ forecastTimeline: phases.filter((p) => p.id !== id) });
+    patch({ forecastTimeline: phases.filter((p) => p.id !== id) });
   };
 
   return (
-    <CollapsibleSection title="Forecast structural changes" defaultOpen={false}>
+    <>
       <p className="mb-4 text-xs text-[#6B6560]">
         Model capacity and service changes over time — e.g. a 4th reformer in Year 2, extra
         classes/day, or activating Standing Spot. These apply from the configured month and feed
@@ -96,10 +96,10 @@ export function ForecastTimelineSection() {
                 className="rounded-lg border border-[#E8E2D9] p-4 space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <SaveableTextAssumptionField
+                  <DraftTextField
                     value={phase.label}
-                    onSave={(label) => updatePhase(phase.id, { label })}
-                    inputClassName="font-medium min-w-[160px]"
+                    onChange={(label) => updatePhase(phase.id, { label })}
+                    className="font-medium min-w-[160px]"
                   />
                   <Button
                     type="button"
@@ -116,9 +116,9 @@ export function ForecastTimelineSection() {
                 <div className="flex flex-wrap gap-3 text-sm">
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     From month
-                    <SaveableInlineNumber
+                    <DraftInlineNumber
                       value={phase.startMonth}
-                      onSave={(v) => updatePhase(phase.id, { startMonth: Math.max(1, v) })}
+                      onChange={(v) => updatePhase(phase.id, { startMonth: Math.max(1, v) })}
                       className="w-16"
                       integer
                       min={1}
@@ -126,9 +126,9 @@ export function ForecastTimelineSection() {
                   </label>
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     To month
-                    <SaveableInlineNumber
+                    <DraftInlineNumber
                       value={phase.endMonth}
-                      onSave={(v) => updatePhase(phase.id, { endMonth: Math.max(1, v) })}
+                      onChange={(v) => updatePhase(phase.id, { endMonth: Math.max(1, v) })}
                       className="w-16"
                       integer
                       min={1}
@@ -136,18 +136,18 @@ export function ForecastTimelineSection() {
                   </label>
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     Reformers
-                    <SaveableInlineNumber
+                    <DraftInlineNumber
                       value={Number(overrides.reformers ?? a.reformers)}
-                      onSave={(v) => updatePhaseOverride(phase.id, "reformers", v)}
+                      onChange={(v) => updatePhaseOverride(phase.id, "reformers", v)}
                       className="w-16"
                       integer
                     />
                   </label>
                   <label className="flex items-center gap-2 text-[#6B6560]">
                     Classes/day
-                    <SaveableInlineNumber
+                    <DraftInlineNumber
                       value={Number(overrides.classesPerDay ?? a.classesPerDay)}
-                      onSave={(v) => updatePhaseOverride(phase.id, "classesPerDay", v)}
+                      onChange={(v) => updatePhaseOverride(phase.id, "classesPerDay", v)}
                       className="w-16"
                       integer
                     />
@@ -186,6 +186,42 @@ export function ForecastTimelineSection() {
           </Button>
         </div>
       )}
-    </CollapsibleSection>
+    </>
+  );
+}
+
+export function ForecastTimelineSection({
+  searchQuery = "",
+}: {
+  searchQuery?: string;
+}) {
+  const { state, updateAssumptions } = useApp();
+  const forecast = resolveForecastSettings(state.assumptions);
+  const phases = forecast.forecastTimeline ?? [];
+
+  return (
+    <AssumptionSection
+      title="Forecast structural changes"
+      searchQuery={searchQuery}
+      searchKeywords={[
+        "reformers",
+        "classes per day",
+        "standing spot",
+        "standby",
+        "structural change",
+        "forecast phase",
+      ]}
+      committed={{ forecastTimeline: phases }}
+      onSave={(draft) =>
+        updateAssumptions({
+          forecastSettings: {
+            ...forecast,
+            forecastTimeline: draft.forecastTimeline,
+          },
+        })
+      }
+    >
+      <ForecastTimelineBody />
+    </AssumptionSection>
   );
 }

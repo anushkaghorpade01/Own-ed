@@ -1,71 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useFinanceModel } from "@/hooks/use-finance-model";
 import { SectionHeader, SampleBanner } from "@/components/shared/metric-card";
 import { formatINR, formatPercent } from "@/lib/format/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TableHeaderWithTooltip, InfoTooltip } from "@/components/ui/info-tooltip";
+import { TableHeaderWithTooltip } from "@/components/ui/info-tooltip";
 import type { YearlyPLRow } from "@/lib/finance/engine/yearly-pl";
-import type { YearProfitExplanation } from "@/lib/finance/engine/yearly-profit-drivers";
-
-function PLRow({
-  label,
-  value,
-  bold,
-  indent,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-  indent?: boolean;
-}) {
-  return (
-    <div
-      className={`flex justify-between py-1.5 ${indent ? "pl-4" : ""} ${bold ? "border-t border-[#E8E2D9] pt-2 font-medium" : ""}`}
-    >
-      <span className={bold ? "text-[#2C2825]" : "text-[#6B6560]"}>{label}</span>
-      <span className={bold ? "text-[#2C2825]" : "text-[#6B6560]"}>{value}</span>
-    </div>
-  );
-}
-
-function YearlyCell({ value, yoy }: { value: string; yoy?: string | null }) {
-  return (
-    <div className="text-right">
-      <div>{value}</div>
-      {yoy && <div className="text-[10px] text-[#A39E98]">{yoy}</div>}
-    </div>
-  );
-}
-
-function YearlyNetProfitCell({
-  value,
-  yoy,
-  explanation,
-}: {
-  value: string;
-  yoy?: string | null;
-  explanation?: YearProfitExplanation;
-}) {
-  return (
-    <div className="flex items-start justify-end gap-1">
-      <div className="text-right">
-        <div>{value}</div>
-        {yoy && <div className="text-[10px] text-[#A39E98]">{yoy}</div>}
-      </div>
-      {explanation && explanation.direction !== "baseline" && (
-        <InfoTooltip
-          content={explanation.detail}
-          label={`Why Year ${explanation.year} net profit changed`}
-          className="mt-0.5"
-        />
-      )}
-    </div>
-  );
-}
+import {
+  ExpandablePLRow,
+  ExpandableYearlyGroup,
+  YearlyDetailRow,
+} from "@/components/finance/pl-expandable-rows";
+import {
+  getDepreciationBreakdown,
+  getDirectCostBreakdown,
+  getNetSalesBreakdown,
+  getOperatingExpenseBreakdown,
+} from "@/lib/finance/pl-breakdown";
 
 function YearlyRow({
   label,
@@ -75,8 +29,6 @@ function YearlyRow({
   bold,
   indent,
   negative,
-  explanations,
-  showProfitTooltip,
 }: {
   label: string;
   years: YearlyPLRow[];
@@ -85,8 +37,6 @@ function YearlyRow({
   bold?: boolean;
   indent?: boolean;
   negative?: boolean;
-  explanations?: YearProfitExplanation[];
-  showProfitTooltip?: boolean;
 }) {
   return (
     <div
@@ -102,20 +52,11 @@ function YearlyRow({
             ? `${yoy.gte(0) ? "+" : ""}${formatPercent(yoy)} YoY`
             : undefined;
 
-        if (showProfitTooltip && explanations) {
-          const explanation = explanations.find((e) => e.year === y.year);
-          return (
-            <YearlyNetProfitCell
-              key={y.year}
-              value={formatted}
-              yoy={yoyLabel}
-              explanation={explanation}
-            />
-          );
-        }
-
         return (
-          <YearlyCell key={y.year} value={formatted} yoy={yoyLabel} />
+          <div key={y.year} className="text-right">
+            <div>{formatted}</div>
+            {yoyLabel && <div className="text-[10px] text-[#A39E98]">{yoyLabel}</div>}
+          </div>
         );
       })}
     </div>
@@ -126,15 +67,31 @@ export default function PLPage() {
   const model = useFinanceModel();
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
   const pl = model.pl;
-  const rev = model.revenue;
   const yearly = model.yearlyPL;
   const yearCols = yearly.years.length;
+
+  const netSalesBreakdown = useMemo(
+    () => getNetSalesBreakdown(model.revenue, pl),
+    [model.revenue, pl]
+  );
+  const directCostBreakdown = useMemo(
+    () => getDirectCostBreakdown(model.directCosts, model.assumptions),
+    [model.directCosts, model.assumptions]
+  );
+  const operatingExpenseBreakdown = useMemo(
+    () => getOperatingExpenseBreakdown(model.operatingExpenses, model.assumptions),
+    [model.operatingExpenses, model.assumptions]
+  );
+  const depreciationBreakdown = useMemo(
+    () => getDepreciationBreakdown(model.assumptions),
+    [model.assumptions]
+  );
 
   return (
     <div>
       <SectionHeader
         title="Profit & Loss"
-        description="Founder planning profit — net sales after GST minus delivery costs, operating costs, and taxes. Not statutory accounting."
+        description="Founder planning profit — net sales after GST minus delivery costs, operating costs, and taxes. Click any grouped line to see the breakup."
         action={
           <div className="flex gap-1 rounded-lg border border-[#E8E2D9] p-0.5">
             <Button
@@ -164,27 +121,54 @@ export default function PLPage() {
             <CardTitle>Monthly P&L (Projected)</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
-            <PLRow label="Group classes (flexible credit)" value={formatINR(rev.groupClassRevenue)} indent />
-            <PLRow label="Standing Spot (committed reservation revenue)" value={formatINR(rev.standingSpotRevenue)} indent />
-            <PLRow label="Private training" value={formatINR(rev.privateRevenue)} indent />
-            <PLRow label="Duo sessions" value={formatINR(rev.duoRevenue)} indent />
-            <PLRow label="Workshops" value={formatINR(rev.workshopRevenue)} indent />
-            <PLRow label="Gross customer billings" value={formatINR(pl.grossCustomerBillings)} bold />
-            <PLRow label="Less: GST collected" value={`(${formatINR(pl.gstCollected)})`} indent />
-            <PLRow label="Net sales (after GST)" value={formatINR(pl.netRevenue)} bold />
+            <ExpandablePLRow
+              label="Net sales (after GST)"
+              value={formatINR(pl.netRevenue)}
+              bold
+              breakdown={netSalesBreakdown}
+            />
 
             <div className="my-3" />
-            <PLRow label="Direct costs" value={`(${formatINR(pl.directCosts)})`} indent />
-            <PLRow label="Contribution" value={formatINR(pl.grossProfit)} bold />
-            <PLRow label="Contribution margin" value={formatPercent(pl.grossMarginPct)} indent />
+            <ExpandablePLRow
+              label="Direct costs"
+              value={`(${formatINR(pl.directCosts)})`}
+              indent
+              breakdown={directCostBreakdown}
+            />
+            <ExpandablePLRow label="Contribution" value={formatINR(pl.grossProfit)} bold />
+            <ExpandablePLRow
+              label="Contribution margin"
+              value={formatPercent(pl.grossMarginPct)}
+              indent
+            />
 
             <div className="my-3" />
-            <PLRow label="Operating expenses" value={`(${formatINR(pl.operatingExpenses)})`} indent />
-            <PLRow label="Operating profit / EBITDA" value={formatINR(pl.ebitda)} bold />
-            <PLRow label="Depreciation & amortisation" value={`(${formatINR(pl.depreciation)})`} indent />
-            <PLRow label="Interest expense" value={`(${formatINR(pl.interestExpense)})`} indent />
-            <PLRow label="Planning net profit" value={formatINR(pl.netProfit)} bold />
-            <PLRow label="Net profit margin" value={formatPercent(pl.netProfit.dividedBy(pl.netRevenue.isZero() ? 1 : pl.netRevenue).times(100))} indent />
+            <ExpandablePLRow
+              label="Operating expenses"
+              value={`(${formatINR(pl.operatingExpenses)})`}
+              indent
+              breakdown={operatingExpenseBreakdown}
+            />
+            <ExpandablePLRow label="Operating profit / EBITDA" value={formatINR(pl.ebitda)} bold />
+            <ExpandablePLRow
+              label="Depreciation & amortisation"
+              value={`(${formatINR(pl.depreciation)})`}
+              indent
+              breakdown={depreciationBreakdown.length > 0 ? depreciationBreakdown : undefined}
+            />
+            <ExpandablePLRow
+              label="Interest expense"
+              value={`(${formatINR(pl.interestExpense)})`}
+              indent
+            />
+            <ExpandablePLRow label="Planning net profit" value={formatINR(pl.netProfit)} bold />
+            <ExpandablePLRow
+              label="Net profit margin"
+              value={formatPercent(
+                pl.netProfit.dividedBy(pl.netRevenue.isZero() ? 1 : pl.netRevenue).times(100)
+              )}
+              indent
+            />
           </CardContent>
         </Card>
       ) : (
@@ -197,9 +181,7 @@ export default function PLPage() {
               </Badge>
             </CardHeader>
             <CardContent className="text-sm">
-              <div
-                className="mb-2 grid grid-cols-[1fr_repeat(var(--year-cols),minmax(0,1fr))] gap-2 border-b border-[#E8E2D9] pb-2 text-xs font-medium text-[#A39E98]"
-              >
+              <div className="mb-2 grid grid-cols-[1fr_repeat(var(--year-cols),minmax(0,1fr))] gap-2 border-b border-[#E8E2D9] pb-2 text-xs font-medium text-[#A39E98]">
                 <span />
                 {yearly.years.map((y, i) => {
                   const explanation = yearly.yearExplanations[i];
@@ -215,39 +197,98 @@ export default function PLPage() {
                 })}
               </div>
 
-              <YearlyRow
+              <ExpandableYearlyGroup
                 label="Net sales"
                 years={yearly.years}
                 pick={(y) => y.netRevenue}
                 pickYoy={(y) => y.yoyNetRevenuePct}
                 bold
-              />
-              <YearlyRow label="Drop-In" years={yearly.years} pick={(y) => y.dropInRevenue} indent />
-              <YearlyRow label="Credit packs (group)" years={yearly.years} pick={(y) => y.groupClassRevenue} indent />
-              <YearlyRow label="Standing Spot" years={yearly.years} pick={(y) => y.standingSpotRevenue} indent />
-              <YearlyRow label="Private" years={yearly.years} pick={(y) => y.privateRevenue} indent />
-              <YearlyRow label="Standby" years={yearly.years} pick={(y) => y.standbyRevenue} indent />
+              >
+                <YearlyDetailRow label="Drop-In" years={yearly.years} pick={(y) => y.dropInRevenue} />
+                <YearlyDetailRow
+                  label="Credit packs (group)"
+                  years={yearly.years}
+                  pick={(y) => y.groupClassRevenue}
+                />
+                <YearlyDetailRow
+                  label="Standing Spot"
+                  years={yearly.years}
+                  pick={(y) => y.standingSpotRevenue}
+                />
+                <YearlyDetailRow label="Private" years={yearly.years} pick={(y) => y.privateRevenue} />
+                <YearlyDetailRow label="Standby" years={yearly.years} pick={(y) => y.standbyRevenue} />
+              </ExpandableYearlyGroup>
 
               <div className="my-3" />
-              <YearlyRow label="Direct costs" years={yearly.years} pick={(y) => y.directCosts} negative indent />
-              <YearlyRow label="Instructor delivery" years={yearly.years} pick={(y) => y.instructorDelivery} negative indent />
-              <YearlyRow label="Consumables" years={yearly.years} pick={(y) => y.sessionConsumables} negative indent />
-              <YearlyRow label="Payment processing" years={yearly.years} pick={(y) => y.paymentFees} negative indent />
+              <ExpandableYearlyGroup
+                label="Direct costs"
+                years={yearly.years}
+                pick={(y) => y.directCosts}
+                negative
+                indent
+              >
+                <YearlyDetailRow
+                  label="Instructor delivery"
+                  years={yearly.years}
+                  pick={(y) => y.instructorDelivery}
+                  negative
+                />
+                <YearlyDetailRow
+                  label="Consumables"
+                  years={yearly.years}
+                  pick={(y) => y.sessionConsumables}
+                  negative
+                />
+                <YearlyDetailRow
+                  label="Payment processing"
+                  years={yearly.years}
+                  pick={(y) => y.paymentFees}
+                  negative
+                />
+              </ExpandableYearlyGroup>
               <YearlyRow label="Contribution" years={yearly.years} pick={(y) => y.grossProfit} bold />
-              <YearlyRow label="Contribution margin" years={yearly.years} pick={(y) => y.grossMarginPct} indent />
+              <YearlyRow
+                label="Contribution margin"
+                years={yearly.years}
+                pick={(y) => y.grossMarginPct}
+                indent
+              />
 
               <div className="my-3" />
-              <YearlyRow label="Operating expenses" years={yearly.years} pick={(y) => y.operatingExpenses} negative indent />
-              <YearlyRow label="Rent" years={yearly.years} pick={(y) => y.rent} negative indent />
-              <YearlyRow label="Payroll" years={yearly.years} pick={(y) => y.payroll} negative indent />
-              <YearlyRow label="Utilities" years={yearly.years} pick={(y) => y.utilities} negative indent />
-              <YearlyRow label="Software" years={yearly.years} pick={(y) => y.software} negative indent />
-              <YearlyRow label="Marketing" years={yearly.years} pick={(y) => y.marketing} negative indent />
-              <YearlyRow label="Repairs & maintenance" years={yearly.years} pick={(y) => y.repairs} negative indent />
+              <ExpandableYearlyGroup
+                label="Operating expenses"
+                years={yearly.years}
+                pick={(y) => y.operatingExpenses}
+                negative
+                indent
+              >
+                <YearlyDetailRow label="Rent" years={yearly.years} pick={(y) => y.rent} negative />
+                <YearlyDetailRow label="Payroll" years={yearly.years} pick={(y) => y.payroll} negative />
+                <YearlyDetailRow
+                  label="Utilities"
+                  years={yearly.years}
+                  pick={(y) => y.utilities}
+                  negative
+                />
+                <YearlyDetailRow label="Software" years={yearly.years} pick={(y) => y.software} negative />
+                <YearlyDetailRow
+                  label="Marketing"
+                  years={yearly.years}
+                  pick={(y) => y.marketing}
+                  negative
+                />
+                <YearlyDetailRow label="Repairs & maintenance" years={yearly.years} pick={(y) => y.repairs} negative />
+                <YearlyDetailRow
+                  label="Other operating"
+                  years={yearly.years}
+                  pick={(y) => y.otherOpex}
+                  negative
+                />
+              </ExpandableYearlyGroup>
               <YearlyRow label="Operating profit / EBITDA" years={yearly.years} pick={(y) => y.ebitda} bold />
 
               <div className="my-3" />
-              <YearlyRow
+              <ExpandableYearlyGroup
                 label="Planning net profit"
                 years={yearly.years}
                 pick={(y) => y.netProfit}
@@ -255,8 +296,26 @@ export default function PLPage() {
                 explanations={yearly.yearExplanations}
                 showProfitTooltip
                 bold
+              >
+                <YearlyDetailRow
+                  label="Depreciation"
+                  years={yearly.years}
+                  pick={(y) => y.depreciation}
+                  negative
+                />
+                <YearlyDetailRow
+                  label="Interest expense"
+                  years={yearly.years}
+                  pick={(y) => y.interestExpense}
+                  negative
+                />
+              </ExpandableYearlyGroup>
+              <YearlyRow
+                label="Net profit margin"
+                years={yearly.years}
+                pick={(y) => y.netProfitMarginPct}
+                indent
               />
-              <YearlyRow label="Net profit margin" years={yearly.years} pick={(y) => y.netProfitMarginPct} indent />
             </CardContent>
           </Card>
 
@@ -297,7 +356,9 @@ export default function PLPage() {
       )}
 
       <p className="mt-4 text-xs text-[#A39E98]">
-        Yearly totals sum months {yearly.years[0]?.startMonth ?? 1}–{yearly.years[yearly.years.length - 1]?.endMonth ?? 36} from the same monthly engine — not Year 1 × 12. Configure structural changes (reformers, services) under{" "}
+        Yearly totals sum months {yearly.years[0]?.startMonth ?? 1}–
+        {yearly.years[yearly.years.length - 1]?.endMonth ?? 36} from the same monthly engine — not
+        Year 1 × 12. Configure structural changes (reformers, services) under{" "}
         <a href="/math/assumptions" className="underline">
           Assumptions → Forecast structural changes
         </a>

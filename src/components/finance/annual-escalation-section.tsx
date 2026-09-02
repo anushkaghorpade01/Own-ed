@@ -1,8 +1,12 @@
 "use client";
 
 import { useApp } from "@/lib/store/app-store";
-import { CollapsibleSection } from "@/components/shared/metric-card";
-import { SaveableAssumptionField, SaveableInlineNumber } from "@/components/finance/saveable-assumption-field";
+import {
+  AssumptionSection,
+  DraftInlineNumber,
+  DraftNumberField,
+  useSectionContext,
+} from "@/components/finance/assumption-section";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CrudSelect } from "@/components/shared/crud-select";
@@ -15,23 +19,21 @@ import { formatINR } from "@/lib/format/currency";
 
 const PRESETS: CostEscalationPreset[] = ["low", "base", "high", "custom"];
 
-export function AnnualEscalationSection() {
-  const { state, updateAssumptions } = useApp();
-  const a = state.assumptions;
-  const forecast = resolveForecastSettings(a);
-  const rules = forecast.costEscalations;
+type EscalationDraft = {
+  forecastYears: number;
+  costEscalationPreset: CostEscalationPreset;
+  costEscalations: CostEscalationRule[];
+  productPriceGrowth: ReturnType<typeof resolveForecastSettings>["productPriceGrowth"];
+};
 
-  const updateForecast = (updates: Partial<typeof forecast>) => {
-    updateAssumptions({
-      forecastSettings: {
-        ...forecast,
-        ...updates,
-      },
-    });
-  };
+function EscalationSectionBody() {
+  const { state } = useApp();
+  const a = state.assumptions;
+  const { draft, patch } = useSectionContext<EscalationDraft>();
+  const rules = draft.costEscalations;
 
   const updateRule = (categoryId: string, updates: Partial<CostEscalationRule>) => {
-    updateForecast({
+    patch({
       costEscalations: rules.map((r) =>
         r.categoryId === categoryId ? { ...r, ...updates, ruleBasis: "custom" } : r
       ),
@@ -40,7 +42,7 @@ export function AnnualEscalationSection() {
   };
 
   const initRules = () => {
-    updateForecast({ costEscalations: createDefaultCostEscalations() });
+    patch({ costEscalations: createDefaultCostEscalations() });
   };
 
   const rentRule = rules.find((r) => r.categoryId === "rent");
@@ -51,7 +53,7 @@ export function AnnualEscalationSection() {
     (a.receptionSalary ?? 0);
 
   return (
-    <CollapsibleSection title="Annual escalation" defaultOpen={false}>
+    <>
       <p className="mb-4 text-xs text-[#6B6560]">
         Most costs will not stay exactly the same as the studio matures. Increase different
         categories at different rates — not one inflation number for everything.
@@ -64,9 +66,9 @@ export function AnnualEscalationSection() {
               key={preset}
               type="button"
               size="sm"
-              variant={forecast.costEscalationPreset === preset ? "default" : "outline"}
+              variant={draft.costEscalationPreset === preset ? "default" : "outline"}
               onClick={() =>
-                updateForecast({
+                patch({
                   costEscalationPreset: preset,
                   costEscalations:
                     rules.length > 0 ? rules : createDefaultCostEscalations(),
@@ -85,10 +87,9 @@ export function AnnualEscalationSection() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <SaveableAssumptionField
+          <DraftNumberField
+            field="forecastYears"
             label="Forecast years"
-            value={forecast.forecastYears}
-            onSave={(v) => updateForecast({ forecastYears: Math.min(10, Math.max(1, v)) })}
             integer
             min={1}
             max={10}
@@ -148,9 +149,9 @@ export function AnnualEscalationSection() {
                       />
                       {rule.escalationType === "annual_pct" && (
                         <>
-                          <SaveableInlineNumber
+                          <DraftInlineNumber
                             value={rule.annualPct ?? 0}
-                            onSave={(v) => updateRule(rule.categoryId, { annualPct: v })}
+                            onChange={(v) => updateRule(rule.categoryId, { annualPct: v })}
                             className="w-16"
                           />
                           <span className="text-xs text-[#A39E98]">%/yr</span>
@@ -158,15 +159,15 @@ export function AnnualEscalationSection() {
                       )}
                       {rule.escalationType === "step_pct_interval" && (
                         <>
-                          <SaveableInlineNumber
+                          <DraftInlineNumber
                             value={rule.stepPct ?? 0}
-                            onSave={(v) => updateRule(rule.categoryId, { stepPct: v })}
+                            onChange={(v) => updateRule(rule.categoryId, { stepPct: v })}
                             className="w-16"
                           />
                           <span className="text-xs text-[#A39E98]">% every</span>
-                          <SaveableInlineNumber
+                          <DraftInlineNumber
                             value={rule.stepIntervalMonths ?? 12}
-                            onSave={(v) =>
+                            onChange={(v) =>
                               updateRule(rule.categoryId, { stepIntervalMonths: v })
                             }
                             className="w-16"
@@ -178,9 +179,9 @@ export function AnnualEscalationSection() {
                     </div>
                   </td>
                   <td className="py-2 pr-4">
-                    <SaveableInlineNumber
+                    <DraftInlineNumber
                       value={rule.firstEscalationMonth}
-                      onSave={(v) => updateRule(rule.categoryId, { firstEscalationMonth: v })}
+                      onChange={(v) => updateRule(rule.categoryId, { firstEscalationMonth: v })}
                       className="w-16"
                       integer
                     />
@@ -217,18 +218,18 @@ export function AnnualEscalationSection() {
             .filter((p) => p.lifecycle !== "archived")
             .slice(0, 8)
             .map((product) => {
-              const growth = forecast.productPriceGrowth.find((g) => g.productId === product.id);
+              const growth = draft.productPriceGrowth.find((g) => g.productId === product.id);
               const pct = growth?.annualIncreasePct ?? 0;
               return (
                 <div key={product.id} className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="min-w-[120px] text-[#6B6560]">{product.name}</span>
-                  <SaveableInlineNumber
+                  <DraftInlineNumber
                     value={pct}
-                    onSave={(v) => {
-                      const existing = forecast.productPriceGrowth.filter(
+                    onChange={(v) => {
+                      const existing = draft.productPriceGrowth.filter(
                         (g) => g.productId !== product.id
                       );
-                      updateForecast({
+                      patch({
                         productPriceGrowth: [
                           ...existing,
                           {
@@ -247,6 +248,49 @@ export function AnnualEscalationSection() {
             })}
         </div>
       </div>
-    </CollapsibleSection>
+    </>
+  );
+}
+
+export function AnnualEscalationSection({
+  searchQuery = "",
+}: {
+  searchQuery?: string;
+}) {
+  const { state, updateAssumptions } = useApp();
+  const forecast = resolveForecastSettings(state.assumptions);
+
+  const committed: EscalationDraft = {
+    forecastYears: forecast.forecastYears,
+    costEscalationPreset: forecast.costEscalationPreset,
+    costEscalations: forecast.costEscalations,
+    productPriceGrowth: forecast.productPriceGrowth,
+  };
+
+  return (
+    <AssumptionSection
+      title="Annual escalation"
+      searchQuery={searchQuery}
+      searchKeywords={[
+        "forecast years",
+        "cost growth",
+        "price growth",
+        "rent escalation",
+        "payroll",
+        "instructor delivery",
+        "annual pct",
+      ]}
+      committed={committed}
+      onSave={(draft) =>
+        updateAssumptions({
+          forecastSettings: {
+            ...forecast,
+            ...draft,
+          },
+        })
+      }
+    >
+      <EscalationSectionBody />
+    </AssumptionSection>
   );
 }

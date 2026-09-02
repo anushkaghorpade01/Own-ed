@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/lib/store/app-store";
-import { SectionHeader, SampleBanner, CollapsibleSection } from "@/components/shared/metric-card";
+import { SectionHeader } from "@/components/shared/metric-card";
 import { FundingPlanEditor } from "@/components/finance/funding-plan-editor";
 import { SetupCompleteness } from "@/components/setup/setup-completeness";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,20 @@ import { explainGstMode } from "@/lib/finance/business-insights";
 import { formatINR } from "@/lib/format/currency";
 import { runFinanceModel } from "@/lib/finance";
 import {
-  SaveableAssumptionField,
-  SaveableCheckboxAssumptionField,
-  SaveableDateAssumptionField,
-  SaveableTextAssumptionField,
-} from "@/components/finance/saveable-assumption-field";
+  AssumptionSection,
+  DraftCheckboxField,
+  DraftCustomExpenseRow,
+  DraftDateField,
+  DraftDepreciationAssetRow,
+  DraftNumberField,
+  pickNumericFields,
+  type CustomExpenseDraft,
+  type DepreciationAssetDraft,
+} from "@/components/finance/assumption-section";
+import {
+  AssumptionsSearchBar,
+  sectionMatchesSearch,
+} from "@/components/finance/assumptions-search";
 import {
   CAPEX_FIELDS,
   FINANCING_FIELDS,
@@ -64,13 +73,75 @@ const VARIABLE_FIELDS: Array<{ key: string; label: string; suffix?: string }> = 
   { key: "miscVariableCosts", label: "Misc variable", suffix: "₹/mo" },
 ];
 
+const STUDIO_KEYS = [
+  "reformers",
+  "maxGroupClassSize",
+  "operatingDaysPerWeek",
+  "classesPerDay",
+  "weeksClosedPerYear",
+] as const;
+
+const OCCUPANCY_KEYS = [
+  "projectedBookedOccupancyPct",
+  "projectedAttendedOccupancyPct",
+  "peakOccupancyPct",
+  "offPeakOccupancyPct",
+] as const;
+
+const RAMP_KEYS = [
+  "rampUpStartingOccupancyPct",
+  "rampUpTargetOccupancyPct",
+  "rampUpMonthsToTarget",
+] as const;
+
+function fieldLabels(fields: Array<{ label: string }>): string[] {
+  return fields.map((f) => f.label);
+}
+
+const SEARCH_INDEX = [
+  { title: "General", keywords: ["GST", "GST registered", "pricing convention"] },
+  { title: "Studio", keywords: ["Reformers", "Max group class size", "Operating days/week", "Classes per day", "Weeks closed/year"] },
+  { title: "Occupancy / Demand", keywords: ["Booked occupancy", "Attended occupancy", "Peak occupancy", "Off-peak occupancy"] },
+  { title: "Fixed operating expenses", keywords: [...fieldLabels(FIXED_FIELDS), "owner compensation", "custom fixed"] },
+  { title: "Variable expenses", keywords: [...fieldLabels(VARIABLE_FIELDS), "custom variable"] },
+  { title: "Ramp-up", keywords: ["Starting occupancy", "Target occupancy", "Months to target"] },
+  { title: "Setup investment (capex)", keywords: [...fieldLabels(CAPEX_FIELDS), "launch investment", "working capital"] },
+  { title: "Deposits", keywords: [...fieldLabels(DEPOSIT_FIELDS), "recoverable deposit"] },
+  { title: "Financing", keywords: [...fieldLabels(FINANCING_FIELDS), "founder equity", "loan"] },
+  { title: "Depreciation & tax", keywords: [...fieldLabels(TAX_FIELDS), "depreciation assets"] },
+  { title: "Private, duo & other revenue", keywords: fieldLabels(ANCILLARY_REVENUE_FIELDS) },
+  { title: "Credit liability (planning)", keywords: fieldLabels(CREDIT_LIABILITY_FIELDS) },
+  { title: "Forecast structural changes", keywords: ["reformers", "classes per day", "standing spot", "standby", "structural change"] },
+  { title: "Annual escalation", keywords: ["forecast years", "cost growth", "price growth", "rent escalation", "payroll"] },
+  { title: "Opening date", keywords: ["target opening date", "opening"] },
+];
+
+function toCustomDraft(expenses: CustomExpense[]): CustomExpenseDraft[] {
+  return expenses.map((e) => ({ id: e.id, name: e.name, amount: e.amount }));
+}
+
+function mergeCustomExpenses(
+  existing: CustomExpense[],
+  category: "fixed" | "variable",
+  draft: CustomExpenseDraft[]
+): CustomExpense[] {
+  return [
+    ...existing.filter((e) => e.category !== category),
+    ...draft.map((e) => ({ ...e, category })),
+  ];
+}
+
 export default function AssumptionsPage() {
   const { state, updateAssumptions } = useApp();
+  const [searchQuery, setSearchQuery] = useState("");
   const a = state.assumptions;
   const model = useMemo(() => runFinanceModel(a), [a]);
   const gstInsight = explainGstMode("exclusive", a.gstRatePct, 1695);
   const capex = model.capex;
   const launchInvestment = model.summary.launchInvestment;
+
+  const customFixed = (a.customExpenses ?? []).filter((e) => e.category === "fixed");
+  const customVariable = (a.customExpenses ?? []).filter((e) => e.category === "variable");
 
   const addCustomExpense = (category: "fixed" | "variable") => {
     const expense: CustomExpense = {
@@ -84,28 +155,37 @@ export default function AssumptionsPage() {
     });
   };
 
-  const updateCustomExpense = (id: string, updates: Partial<CustomExpense>) => {
-    updateAssumptions({
-      customExpenses: (a.customExpenses ?? []).map((e) =>
-        e.id === id ? { ...e, ...updates } : e
-      ),
-    });
-  };
-
   const removeCustomExpense = (id: string) => {
     updateAssumptions({
       customExpenses: (a.customExpenses ?? []).filter((e) => e.id !== id),
     });
   };
 
-  const customFixed = (a.customExpenses ?? []).filter((e) => e.category === "fixed");
-  const customVariable = (a.customExpenses ?? []).filter((e) => e.category === "variable");
+  const depreciationDraft: DepreciationAssetDraft[] = (a.depreciationAssets ?? []).map(
+    (asset) => ({
+      id: asset.id,
+      name: asset.name,
+      purchaseValue: asset.purchaseValue,
+      usefulLifeMonths: asset.usefulLifeMonths,
+      salvageValue: asset.salvageValue,
+    })
+  );
+
+  const searchResultCount = useMemo(
+    () =>
+      SEARCH_INDEX.filter((section) =>
+        sectionMatchesSearch(section.title, section.keywords, searchQuery)
+      ).length,
+    [searchQuery]
+  );
+
+  const sectionSearch = { searchQuery };
 
   return (
     <div>
       <SectionHeader
         title="Assumptions"
-        description="Central assumptions database — all financial calculations derive from here. Edit a value, click Save, and totals update immediately."
+        description="Edit values in each section, then click Save changes on that section. Totals update immediately after you save."
         action={
           <Badge variant="secondary">
             Last edited {format(new Date(a.updatedAt), "d MMM yyyy, HH:mm")}
@@ -118,10 +198,31 @@ export default function AssumptionsPage() {
         <BusinessInsightCard {...gstInsight} />
       </div>
 
+      <AssumptionsSearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        resultCount={searchResultCount}
+      />
+
       <div className="space-y-4">
-        <CollapsibleSection title="General" defaultOpen>
+        <AssumptionSection
+          title="General"
+          defaultOpen
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "General")!.keywords}
+          {...sectionSearch}
+          committed={{
+            gstRatePct: a.gstRatePct,
+            gstRegistered: a.gstRegistered,
+          }}
+          onSave={(draft) =>
+            updateAssumptions({
+              gstRatePct: draft.gstRatePct,
+              gstRegistered: draft.gstRegistered,
+            })
+          }
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <SaveableAssumptionField label="GST rate" value={a.gstRatePct} onSave={(v) => updateAssumptions({ gstRatePct: v })} suffix="%" />
+            <DraftNumberField field="gstRatePct" label="GST rate" suffix="%" />
             <div className="space-y-1">
               <label className="text-xs font-medium text-[#6B6560]">Pricing convention</label>
               <p className="text-sm text-[#2C2825]">Net sales ex-GST (canonical)</p>
@@ -129,38 +230,92 @@ export default function AssumptionsPage() {
                 Enter net prices on products. Customer pays = net × (1 + GST rate).
               </p>
             </div>
-            <SaveableCheckboxAssumptionField
+            <DraftCheckboxField
+              field="gstRegistered"
               id="gst-reg"
               label="GST registered"
-              checked={a.gstRegistered}
-              onSave={(gstRegistered) => updateAssumptions({ gstRegistered })}
             />
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Studio" defaultOpen>
+        <AssumptionSection
+          title="Studio"
+          defaultOpen
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Studio")!.keywords}
+          {...sectionSearch}
+          committed={pickNumericFields(a, [...STUDIO_KEYS])}
+          onSave={(draft) => updateAssumptions(draft)}
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <SaveableAssumptionField label="Reformers" value={a.reformers} onSave={(v) => updateAssumptions({ reformers: v })} integer />
-            <SaveableAssumptionField label="Max group class size" value={a.maxGroupClassSize} onSave={(v) => updateAssumptions({ maxGroupClassSize: v })} integer />
-            <SaveableAssumptionField label="Operating days/week" value={a.operatingDaysPerWeek} onSave={(v) => updateAssumptions({ operatingDaysPerWeek: v })} integer />
-            <SaveableAssumptionField label="Classes per day (fallback)" value={a.classesPerDay} onSave={(v) => updateAssumptions({ classesPerDay: v })} help="Used when schedule not defined" integer />
-            <SaveableAssumptionField label="Weeks closed/year" value={a.weeksClosedPerYear} onSave={(v) => updateAssumptions({ weeksClosedPerYear: v })} integer />
+            <DraftNumberField field="reformers" label="Reformers" integer />
+            <DraftNumberField field="maxGroupClassSize" label="Max group class size" integer />
+            <DraftNumberField field="operatingDaysPerWeek" label="Operating days/week" integer />
+            <DraftNumberField
+              field="classesPerDay"
+              label="Classes per day (fallback)"
+              help="Used when schedule not defined"
+              integer
+            />
+            <DraftNumberField field="weeksClosedPerYear" label="Weeks closed/year" integer />
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Occupancy / Demand">
+        <AssumptionSection
+          title="Occupancy / Demand"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Occupancy / Demand")!.keywords}
+          {...sectionSearch}
+          committed={pickNumericFields(a, [...OCCUPANCY_KEYS])}
+          onSave={(draft) =>
+            updateAssumptions({
+              ...draft,
+              rampUpTargetOccupancyPct: draft.projectedBookedOccupancyPct,
+            })
+          }
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <SaveableAssumptionField label="Booked occupancy" value={a.projectedBookedOccupancyPct} onSave={(v) => updateAssumptions({ projectedBookedOccupancyPct: v, rampUpTargetOccupancyPct: v })} suffix="%" help="What % of available spots get booked — also the ramp-up endpoint for payback" />
-            <SaveableAssumptionField label="Attended occupancy" value={a.projectedAttendedOccupancyPct} onSave={(v) => updateAssumptions({ projectedAttendedOccupancyPct: v })} suffix="%" help="After cancellations and no-shows" />
-            <SaveableAssumptionField label="Peak occupancy" value={a.peakOccupancyPct} onSave={(v) => updateAssumptions({ peakOccupancyPct: v })} suffix="%" />
-            <SaveableAssumptionField label="Off-peak occupancy" value={a.offPeakOccupancyPct} onSave={(v) => updateAssumptions({ offPeakOccupancyPct: v })} suffix="%" />
+            <DraftNumberField
+              field="projectedBookedOccupancyPct"
+              label="Booked occupancy"
+              suffix="%"
+              help="What % of available spots get booked — also the ramp-up endpoint for payback"
+            />
+            <DraftNumberField
+              field="projectedAttendedOccupancyPct"
+              label="Attended occupancy"
+              suffix="%"
+              help="After cancellations and no-shows"
+            />
+            <DraftNumberField field="peakOccupancyPct" label="Peak occupancy" suffix="%" />
+            <DraftNumberField field="offPeakOccupancyPct" label="Off-peak occupancy" suffix="%" />
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection
+        <AssumptionSection
           title="Fixed operating expenses"
           defaultOpen
-          action={
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Fixed operating expenses")!.keywords}
+          {...sectionSearch}
+          committed={{
+            ...pickNumericFields(
+              a,
+              FIXED_FIELDS.map((f) => f.key)
+            ),
+            includeOwnerMarketRateComp: a.includeOwnerMarketRateComp,
+            customFixed: toCustomDraft(customFixed),
+          }}
+          onSave={(draft) => {
+            const { customFixed: draftCustom, includeOwnerMarketRateComp, ...rest } = draft;
+            updateAssumptions({
+              ...rest,
+              includeOwnerMarketRateComp,
+              customExpenses: mergeCustomExpenses(
+                a.customExpenses ?? [],
+                "fixed",
+                draftCustom
+              ),
+            });
+          }}
+          extraAction={
             <Button variant="outline" size="sm" onClick={() => addCustomExpense("fixed")}>
               + Add expense
             </Button>
@@ -168,21 +323,12 @@ export default function AssumptionsPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FIXED_FIELDS.map(({ key, label }) => (
-              <SaveableAssumptionField
-                key={key}
-                label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
-                suffix="₹/mo"
-              />
+              <DraftNumberField key={key} field={key} label={label} suffix="₹/mo" />
             ))}
-            <SaveableCheckboxAssumptionField
+            <DraftCheckboxField
+              field="includeOwnerMarketRateComp"
               id="owner-comp"
               label="Include market-rate compensation for owner teaching (recommended — shows true business cost)"
-              checked={a.includeOwnerMarketRateComp}
-              onSave={(includeOwnerMarketRateComp) =>
-                updateAssumptions({ includeOwnerMarketRateComp })
-              }
             />
           </div>
           {customFixed.length > 0 && (
@@ -190,29 +336,39 @@ export default function AssumptionsPage() {
               <p className="text-xs font-medium text-[#A39E98]">Custom fixed expenses</p>
               {customFixed.map((exp) => (
                 <div key={exp.id} className="flex flex-wrap items-end gap-2">
-                  <SaveableTextAssumptionField
-                    value={exp.name}
-                    onSave={(name) => updateCustomExpense(exp.id, { name })}
-                    placeholder="Expense name"
-                    inputClassName="max-w-[180px]"
-                  />
-                  <SaveableAssumptionField
-                    label=""
-                    value={exp.amount}
-                    onSave={(amount) => updateCustomExpense(exp.id, { amount })}
-                    inputClassName="max-w-[120px]"
-                  />
-                  <span className="pb-2 text-xs text-[#A39E98]">₹/mo</span>
-                  <Button variant="ghost" size="sm" onClick={() => removeCustomExpense(exp.id)}>Remove</Button>
+                  <DraftCustomExpenseRow field="customFixed" expenseId={exp.id} />
+                  <Button variant="ghost" size="sm" onClick={() => removeCustomExpense(exp.id)}>
+                    Remove
+                  </Button>
                 </div>
               ))}
             </div>
           )}
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection
+        <AssumptionSection
           title="Variable expenses"
-          action={
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Variable expenses")!.keywords}
+          {...sectionSearch}
+          committed={{
+            ...pickNumericFields(
+              a,
+              VARIABLE_FIELDS.map((f) => f.key)
+            ),
+            customVariable: toCustomDraft(customVariable),
+          }}
+          onSave={(draft) => {
+            const { customVariable: draftCustom, ...rest } = draft;
+            updateAssumptions({
+              ...rest,
+              customExpenses: mergeCustomExpenses(
+                a.customExpenses ?? [],
+                "variable",
+                draftCustom
+              ),
+            });
+          }}
+          extraAction={
             <Button variant="outline" size="sm" onClick={() => addCustomExpense("variable")}>
               + Add expense
             </Button>
@@ -220,11 +376,10 @@ export default function AssumptionsPage() {
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {VARIABLE_FIELDS.map(({ key, label, suffix }) => (
-              <SaveableAssumptionField
+              <DraftNumberField
                 key={key}
+                field={key}
                 label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
                 suffix={suffix ?? "₹/mo"}
               />
             ))}
@@ -234,35 +389,56 @@ export default function AssumptionsPage() {
               <p className="text-xs font-medium text-[#A39E98]">Custom variable expenses</p>
               {customVariable.map((exp) => (
                 <div key={exp.id} className="flex flex-wrap items-end gap-2">
-                  <SaveableTextAssumptionField
-                    value={exp.name}
-                    onSave={(name) => updateCustomExpense(exp.id, { name })}
-                    placeholder="Expense name"
-                    inputClassName="max-w-[180px]"
-                  />
-                  <SaveableAssumptionField
-                    label=""
-                    value={exp.amount}
-                    onSave={(amount) => updateCustomExpense(exp.id, { amount })}
-                    inputClassName="max-w-[120px]"
-                  />
-                  <span className="pb-2 text-xs text-[#A39E98]">₹/mo</span>
-                  <Button variant="ghost" size="sm" onClick={() => removeCustomExpense(exp.id)}>Remove</Button>
+                  <DraftCustomExpenseRow field="customVariable" expenseId={exp.id} />
+                  <Button variant="ghost" size="sm" onClick={() => removeCustomExpense(exp.id)}>
+                    Remove
+                  </Button>
                 </div>
               ))}
             </div>
           )}
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Ramp-up">
+        <AssumptionSection
+          title="Ramp-up"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Ramp-up")!.keywords}
+          {...sectionSearch}
+          committed={pickNumericFields(a, [...RAMP_KEYS])}
+          onSave={(draft) =>
+            updateAssumptions({
+              ...draft,
+              projectedBookedOccupancyPct: draft.rampUpTargetOccupancyPct,
+            })
+          }
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <SaveableAssumptionField label="Starting occupancy" value={a.rampUpStartingOccupancyPct} onSave={(v) => updateAssumptions({ rampUpStartingOccupancyPct: v })} suffix="%" help="Month 1 occupancy — studio won't be full on day one" />
-            <SaveableAssumptionField label="Target occupancy" value={a.rampUpTargetOccupancyPct} onSave={(v) => updateAssumptions({ rampUpTargetOccupancyPct: v, projectedBookedOccupancyPct: v })} suffix="%" help="Ramp endpoint — kept in sync with booked occupancy" />
-            <SaveableAssumptionField label="Months to target" value={a.rampUpMonthsToTarget} onSave={(v) => updateAssumptions({ rampUpMonthsToTarget: v })} />
+            <DraftNumberField
+              field="rampUpStartingOccupancyPct"
+              label="Starting occupancy"
+              suffix="%"
+              help="Month 1 occupancy — studio won't be full on day one"
+            />
+            <DraftNumberField
+              field="rampUpTargetOccupancyPct"
+              label="Target occupancy"
+              suffix="%"
+              help="Ramp endpoint — kept in sync with booked occupancy"
+            />
+            <DraftNumberField field="rampUpMonthsToTarget" label="Months to target" integer />
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Setup investment (capex)" defaultOpen>
+        <AssumptionSection
+          title="Setup investment (capex)"
+          defaultOpen
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Setup investment (capex)")!.keywords}
+          {...sectionSearch}
+          committed={pickNumericFields(
+            a,
+            CAPEX_FIELDS.map((f) => f.key)
+          )}
+          onSave={(draft) => updateAssumptions(draft)}
+        >
           <p className="mb-4 text-xs text-[#6B6560]">
             One-off setup costs — not monthly opex. These drive{" "}
             <strong>Launch investment</strong> on the home dashboard and payback hurdle.
@@ -284,44 +460,58 @@ export default function AssumptionsPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {CAPEX_FIELDS.map(({ key, label }) => (
-              <SaveableAssumptionField
-                key={key}
-                label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
-                suffix="₹"
-              />
+              <DraftNumberField key={key} field={key} label={label} suffix="₹" />
             ))}
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Deposits">
+        <AssumptionSection
+          title="Deposits"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Deposits")!.keywords}
+          {...sectionSearch}
+          committed={{
+            ...pickNumericFields(
+              a,
+              DEPOSIT_FIELDS.map((f) => f.key)
+            ),
+            includeRecoverableDepositInPayback: a.includeRecoverableDepositInPayback,
+          }}
+          onSave={(draft) => {
+            const { includeRecoverableDepositInPayback, ...rest } = draft;
+            updateAssumptions({ ...rest, includeRecoverableDepositInPayback });
+          }}
+        >
           <p className="mb-4 text-xs text-[#6B6560]">
             Refundable security deposit is balance-sheet cash, not an operating expense.
             Excluded from payback hurdle unless you enable the toggle below.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {DEPOSIT_FIELDS.map(({ key, label, suffix }) => (
-              <SaveableAssumptionField
+              <DraftNumberField
                 key={key}
+                field={key}
                 label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
                 suffix={suffix ?? "₹"}
               />
             ))}
-            <SaveableCheckboxAssumptionField
+            <DraftCheckboxField
+              field="includeRecoverableDepositInPayback"
               id="deposit-payback"
               label="Include recoverable deposit in payback hurdle"
-              checked={a.includeRecoverableDepositInPayback}
-              onSave={(includeRecoverableDepositInPayback) =>
-                updateAssumptions({ includeRecoverableDepositInPayback })
-              }
             />
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Financing">
+        <AssumptionSection
+          title="Financing"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Financing")!.keywords}
+          {...sectionSearch}
+          committed={pickNumericFields(
+            a,
+            FINANCING_FIELDS.map((f) => f.key)
+          )}
+          onSave={(draft) => updateAssumptions(draft)}
+        >
           <p className="mb-4 text-xs text-[#6B6560]">
             Founder equity is your <strong>planning total</strong> for all cash you&apos;ll put in
             — your own money plus friends &amp; family for now. Stake and revenue-share splits come
@@ -329,11 +519,10 @@ export default function AssumptionsPage() {
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FINANCING_FIELDS.map(({ key, label, suffix }) => (
-              <SaveableAssumptionField
+              <DraftNumberField
                 key={key}
+                field={key}
                 label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
                 suffix={suffix ?? "₹"}
               />
             ))}
@@ -341,65 +530,77 @@ export default function AssumptionsPage() {
           <div className="mt-6 border-t border-[#F0EBE3] pt-4">
             <FundingPlanEditor />
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Depreciation & tax">
+        <AssumptionSection
+          title="Depreciation & tax"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Depreciation & tax")!.keywords}
+          {...sectionSearch}
+          committed={{
+            ...pickNumericFields(
+              a,
+              TAX_FIELDS.map((f) => f.key)
+            ),
+            depreciationAssets: depreciationDraft,
+          }}
+          onSave={(draft) => {
+            const { depreciationAssets, ...rest } = draft;
+            updateAssumptions({
+              ...rest,
+              depreciationAssets: depreciationAssets
+                .map((asset) => {
+                  const existing = a.depreciationAssets.find((x) => x.id === asset.id);
+                  if (!existing) return null;
+                  return {
+                    ...existing,
+                    purchaseValue: asset.purchaseValue,
+                    usefulLifeMonths: asset.usefulLifeMonths,
+                    salvageValue: asset.salvageValue,
+                  };
+                })
+                .filter((asset): asset is NonNullable<typeof asset> => asset != null),
+            });
+          }}
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {TAX_FIELDS.map(({ key, label, suffix }) => (
-              <SaveableAssumptionField
+              <DraftNumberField
                 key={key}
+                field={key}
                 label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
                 suffix={suffix ?? "%"}
               />
             ))}
           </div>
-          {(a.depreciationAssets ?? []).length > 0 && (
+          {depreciationDraft.length > 0 && (
             <div className="mt-4 space-y-3 border-t border-[#F0EBE3] pt-4">
               <p className="text-xs font-medium text-[#A39E98]">Depreciation assets</p>
-              {a.depreciationAssets.map((asset, idx) => (
-                <div key={asset.id} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <SaveableAssumptionField
-                    label={`${asset.name} — purchase value`}
-                    value={asset.purchaseValue}
-                    onSave={(v) => {
-                      const assets = [...a.depreciationAssets];
-                      assets[idx] = { ...asset, purchaseValue: v };
-                      updateAssumptions({ depreciationAssets: assets });
-                    }}
-                    suffix="₹"
-                  />
-                  <SaveableAssumptionField
-                    label="Useful life"
-                    value={asset.usefulLifeMonths}
-                    onSave={(v) => {
-                      const assets = [...a.depreciationAssets];
-                      assets[idx] = { ...asset, usefulLifeMonths: Math.max(1, Math.round(v)) };
-                      updateAssumptions({ depreciationAssets: assets });
-                    }}
-                    suffix="months"
-                  />
-                  <SaveableAssumptionField
-                    label="Salvage value"
-                    value={asset.salvageValue}
-                    onSave={(v) => {
-                      const assets = [...a.depreciationAssets];
-                      assets[idx] = { ...asset, salvageValue: v };
-                      updateAssumptions({ depreciationAssets: assets });
-                    }}
-                    suffix="₹"
-                  />
-                  <div className="flex items-end pb-1 text-xs text-[#6B6560]">
-                    Monthly depreciation (all assets): {formatINR(model.pl.depreciation)}
-                  </div>
-                </div>
+              {depreciationDraft.map((asset) => (
+                <DraftDepreciationAssetRow
+                  key={asset.id}
+                  field="depreciationAssets"
+                  assetId={asset.id}
+                  monthlyDepreciationLabel={
+                    <>Monthly depreciation (all assets): {formatINR(model.pl.depreciation)}</>
+                  }
+                />
               ))}
             </div>
           )}
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Private, duo & other revenue">
+        <AssumptionSection
+          title="Private, duo & other revenue"
+          searchKeywords={
+            SEARCH_INDEX.find((s) => s.title === "Private, duo & other revenue")!.keywords
+          }
+          {...sectionSearch}
+          committed={pickNumericFields(
+            a,
+            ANCILLARY_REVENUE_FIELDS.map((f) => f.key)
+          )}
+          onSave={(draft) => updateAssumptions(draft)}
+        >
           <p className="mb-4 text-xs text-[#6B6560]">
             Session volume comes from Access Products → Private/Duo session mix (%). Prices here set
             revenue per session. Edit mix on{" "}
@@ -410,47 +611,58 @@ export default function AssumptionsPage() {
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {ANCILLARY_REVENUE_FIELDS.map(({ key, label, suffix }) => (
-              <SaveableAssumptionField
+              <DraftNumberField
                 key={key}
+                field={key}
                 label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
                 suffix={suffix ?? "₹"}
               />
             ))}
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <CollapsibleSection title="Credit liability (planning)">
+        <AssumptionSection
+          title="Credit liability (planning)"
+          searchKeywords={
+            SEARCH_INDEX.find((s) => s.title === "Credit liability (planning)")!.keywords
+          }
+          {...sectionSearch}
+          committed={pickNumericFields(
+            a,
+            CREDIT_LIABILITY_FIELDS.map((f) => f.key)
+          )}
+          onSave={(draft) => updateAssumptions(draft)}
+        >
           <p className="mb-4 text-xs text-[#6B6560]">
             Outstanding credit obligations vs capacity — used on Capacity and Credit Health pages.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {CREDIT_LIABILITY_FIELDS.map(({ key, label, suffix }) => (
-              <SaveableAssumptionField
+              <DraftNumberField
                 key={key}
+                field={key}
                 label={label}
-                value={Number(a[key as keyof typeof a] ?? 0)}
-                onSave={(v) => updateAssumptions({ [key]: v })}
                 suffix={suffix ?? ""}
               />
             ))}
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
 
-        <ForecastTimelineSection />
+        <ForecastTimelineSection {...sectionSearch} />
 
-        <AnnualEscalationSection />
+        <AnnualEscalationSection {...sectionSearch} />
 
-        <CollapsibleSection title="Opening date">
+        <AssumptionSection
+          title="Opening date"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Opening date")!.keywords}
+          {...sectionSearch}
+          committed={{ targetOpeningDate: a.targetOpeningDate ?? "" }}
+          onSave={(draft) => updateAssumptions({ targetOpeningDate: draft.targetOpeningDate })}
+        >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <SaveableDateAssumptionField
-              label="Target opening date"
-              value={a.targetOpeningDate ?? ""}
-              onSave={(targetOpeningDate) => updateAssumptions({ targetOpeningDate })}
-            />
+            <DraftDateField field="targetOpeningDate" label="Target opening date" />
           </div>
-        </CollapsibleSection>
+        </AssumptionSection>
       </div>
     </div>
   );
