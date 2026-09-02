@@ -39,6 +39,27 @@ import {
   getProductById,
 } from "@/lib/finance/engine/product-catalog";
 
+function syncBaseCaseScenarioFromLiveAssumptions(
+  scenarios: Scenario[],
+  liveAssumptions: FinanceAssumptions
+): Scenario[] {
+  return scenarios.map((scenario) => {
+    if (!scenario.isBaseCase) return scenario;
+    return {
+      ...scenario,
+      assumptions: {
+        ...structuredClone(liveAssumptions),
+        name:
+          scenario.assumptions.name ??
+          scenario.name ??
+          liveAssumptions.name ??
+          "Base Case",
+      },
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
 const LEGACY_SAMPLE_IDS = new Set([
   "dec-1",
   "dec-2",
@@ -200,14 +221,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateAssumptions = useCallback(
     (updates: Partial<FinanceAssumptions>, options?: { trackUndo?: boolean }) => {
       updateState(
-        (prev) => ({
-          ...prev,
-          assumptions: {
+        (prev) => {
+          const assumptions = {
             ...prev.assumptions,
             ...updates,
             updatedAt: new Date().toISOString(),
-          },
-        }),
+          };
+          return {
+            ...prev,
+            assumptions,
+            scenarios: syncBaseCaseScenarioFromLiveAssumptions(prev.scenarios, assumptions),
+          };
+        },
         options?.trackUndo !== false
       );
     },
@@ -216,7 +241,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setAssumptions = useCallback(
     (assumptions: FinanceAssumptions) => {
-      updateState((prev) => ({ ...prev, assumptions }), true);
+      updateState(
+        (prev) => ({
+          ...prev,
+          assumptions,
+          scenarios: syncBaseCaseScenarioFromLiveAssumptions(prev.scenarios, assumptions),
+        }),
+        true
+      );
     },
     [updateState]
   );
@@ -471,7 +503,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           ...source,
           id: `scenario-${Date.now()}`,
           name: `${source.name} (copy)`,
-          assumptions: structuredClone(source.assumptions),
+          assumptions: structuredClone(
+            source.isBaseCase ? prev.assumptions : source.assumptions
+          ),
           parentScenarioId: source.id,
           isBaseCase: false,
           createdAt: now,
@@ -563,10 +597,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           prev.scenarios[0];
         if (!parent) return prev;
         const now = new Date().toISOString();
+        const parentAssumptions = parent.isBaseCase
+          ? prev.assumptions
+          : parent.assumptions;
         const scenario: Scenario = {
           id: `scenario-${Date.now()}`,
           name,
-          assumptions: structuredClone(parent.assumptions),
+          assumptions: structuredClone(parentAssumptions),
           parentScenarioId: parent.id,
           isBaseCase: false,
           timeline: [],

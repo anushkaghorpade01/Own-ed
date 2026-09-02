@@ -14,7 +14,11 @@ import {
   type SensitivityOutputKey,
 } from "@/lib/finance/engine/scenarios";
 import { ScenarioEditor } from "@/components/finance/scenario-editor";
-import { isOptimisationDraftScenario } from "@/lib/finance/scenario-helpers";
+import {
+  isOptimisationDraftScenario,
+  resolveBaseAssumptionsForAnalysis,
+  resolveScenarioAssumptionsForAnalysis,
+} from "@/lib/finance/scenario-helpers";
 import { SectionHeader } from "@/components/shared/metric-card";
 import { formatINR, formatPercent } from "@/lib/format/currency";
 import { OPERATING_CASH_INFLOW_BASIS } from "@/lib/finance/cash-basis";
@@ -110,15 +114,20 @@ export default function ScenariosPage() {
   const editableScenarios = activeScenarios.filter((s) => !s.isBaseCase);
   const optimisationDrafts = editableScenarios.filter(isOptimisationDraftScenario);
   const manualScenarios = editableScenarios.filter((s) => !isOptimisationDraftScenario(s));
-  const baseAssumptions = baseScenario?.assumptions ?? state.assumptions;
+  const baseAssumptions = useMemo(
+    () => resolveBaseAssumptionsForAnalysis(state.assumptions, baseScenario),
+    [state.assumptions, baseScenario]
+  );
 
   const comparison = useMemo(() => {
     const selected = activeScenarios.filter((s) => selectedIds.includes(s.id));
     return compareScenarios(
       baseAssumptions,
-      selected.map((s) => s.assumptions)
+      selected.map((scenario) =>
+        resolveScenarioAssumptionsForAnalysis(scenario, state.assumptions)
+      )
     );
-  }, [activeScenarios, selectedIds, baseAssumptions]);
+  }, [activeScenarios, selectedIds, baseAssumptions, state.assumptions]);
 
   const focusAnalysis = useMemo(() => {
     const scenario = activeScenarios.find((s) => s.id === focusId);
