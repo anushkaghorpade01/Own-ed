@@ -34,6 +34,7 @@ import {
   TAX_FIELDS,
   CREDIT_LIABILITY_FIELDS,
 } from "@/lib/finance/assumption-fields";
+import { OCCUPANCY_FIELD_TOOLTIPS } from "@/lib/finance/occupancy-tooltips";
 import { format } from "date-fns";
 import type { CustomExpense } from "@/lib/finance/schemas";
 import { AnnualEscalationSection } from "@/components/finance/annual-escalation-section";
@@ -277,15 +278,20 @@ export default function AssumptionsPage() {
               field="projectedBookedOccupancyPct"
               label="Booked occupancy"
               suffix="%"
-              help="What % of available spots get booked — also the ramp-up endpoint for payback"
+              tooltip={OCCUPANCY_FIELD_TOOLTIPS.booked}
             />
             <DraftNumberField
               field="projectedAttendedOccupancyPct"
               label="Attended occupancy"
               suffix="%"
-              help="After cancellations and no-shows"
+              tooltip={OCCUPANCY_FIELD_TOOLTIPS.attended}
             />
-            <DraftNumberField field="peakOccupancyPct" label="Peak occupancy" suffix="%" />
+            <DraftNumberField
+              field="peakOccupancyPct"
+              label="Peak occupancy"
+              suffix="%"
+              tooltip={OCCUPANCY_FIELD_TOOLTIPS.peak}
+            />
             <DraftNumberField field="offPeakOccupancyPct" label="Off-peak occupancy" suffix="%" />
           </div>
         </AssumptionSection>
@@ -433,16 +439,21 @@ export default function AssumptionsPage() {
           defaultOpen
           searchKeywords={SEARCH_INDEX.find((s) => s.title === "Setup investment (capex)")!.keywords}
           {...sectionSearch}
-          committed={pickNumericFields(
-            a,
-            CAPEX_FIELDS.map((f) => f.key)
-          )}
+          committed={{
+            ...pickNumericFields(
+              a,
+              CAPEX_FIELDS.map((f) => f.key)
+            ),
+            workingCapital: a.workingCapital,
+          }}
           onSave={(draft) => updateAssumptions(draft)}
         >
           <p className="mb-4 text-xs text-[#6B6560]">
             One-off setup costs — not monthly opex. These drive{" "}
             <strong>Launch investment</strong> on the home dashboard and payback hurdle.
             Capex is not expensed through the monthly P&amp;L (depreciation is separate).
+            Working capital is a cash buffer funded at launch and retained in the bank — counted
+            once in launch investment, not as a separate expense.
           </p>
           <div className="mb-4 grid gap-3 rounded-lg bg-[#FAF8F5] p-4 sm:grid-cols-3 text-sm">
             <div>
@@ -462,6 +473,12 @@ export default function AssumptionsPage() {
             {CAPEX_FIELDS.map(({ key, label }) => (
               <DraftNumberField key={key} field={key} label={label} suffix="₹" />
             ))}
+            <DraftNumberField
+              field="workingCapital"
+              label="Working capital (opening cash buffer)"
+              suffix="₹"
+              help="Funded at launch and kept in the bank — included in launch investment, not spent as opex"
+            />
           </div>
         </AssumptionSection>
 
@@ -513,9 +530,9 @@ export default function AssumptionsPage() {
           onSave={(draft) => updateAssumptions(draft)}
         >
           <p className="mb-4 text-xs text-[#6B6560]">
-            Founder equity is your <strong>planning total</strong> for all cash you&apos;ll put in
-            — your own money plus friends &amp; family for now. Stake and revenue-share splits come
-            later. Loan funding is separate and affects bank cash only, not investment recovery.
+            Enter how much cash you plan to put in. This is your decision — the model will show
+            whether it is enough for bank liquidity but will never change it automatically. Loan
+            funding is separate and affects bank cash only, not investment recovery or payback.
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FINANCING_FIELDS.map(({ key, label, suffix }) => (

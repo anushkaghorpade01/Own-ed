@@ -25,12 +25,11 @@ export const CAPEX_FIELDS: Array<{ key: string; label: string }> = [
 ];
 
 export const FINANCING_FIELDS: Array<{ key: string; label: string; suffix?: string }> = [
-  { key: "founderEquity", label: "Founder equity injected (planning total)", suffix: "₹" },
+  { key: "founderEquity", label: "Founder funding planned (your money)", suffix: "₹" },
   { key: "loanAmount", label: "Loan principal", suffix: "₹" },
   { key: "loanInterestRatePct", label: "Loan interest rate", suffix: "% p.a." },
   { key: "loanTermMonths", label: "Loan term", suffix: "months" },
   { key: "loanGracePeriodMonths", label: "Loan grace period", suffix: "months" },
-  { key: "workingCapital", label: "Working capital reserve", suffix: "₹" },
 ];
 
 export const DEPOSIT_FIELDS: Array<{ key: string; label: string; suffix?: string }> = [

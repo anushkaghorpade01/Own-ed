@@ -47,11 +47,16 @@ export interface MonthReconciliation {
 export interface CashHealthSummary {
   lowestBankCash: Decimal;
   lowestBankCashMonth: number;
+  /** All planned funding: founder + loan + scheduled injections */
+  totalPlannedFunding: Decimal;
+  /** max(0, −lowestBankCash) — additional funding beyond current plan */
+  fundingGap: Decimal;
+  /** totalPlannedFunding + fundingGap */
+  minimumTotalFundingRequired: Decimal;
+  /** Cushion at lowest point when bank stays positive */
+  fundingSurplus: Decimal;
+  /** @deprecated use fundingGap */
   minimumAdditionalFundingRequired: Decimal;
-  /** Founder equity + any unfunded trough gap — single planning bucket until F&F/stake split */
-  plannedFounderEquityTotal: Decimal;
-  /** Amount to add to founder equity input to fully cover the plan (0 if already covered) */
-  founderEquityTopUpSuggested: Decimal;
   bankCashPositiveMonth: number | null;
   operatingCashPositiveMonth: number | null;
   investmentRecoveredMonth: number | null;
@@ -168,8 +173,7 @@ export function buildCashHealthSummary(
   paybackInvestmentBase: Decimal,
   investmentRecoveredMonth: number | null,
   openingBankCashAfterLaunch: Decimal,
-  founderEquity: Decimal,
-  loanAmount: Decimal = d(0)
+  totalPlannedFunding: Decimal
 ): CashHealthSummary {
   const lowest = monthly.reduce(
     (acc, m) => {
@@ -190,19 +194,18 @@ export function buildCashHealthSummary(
 
   const last = monthly[monthly.length - 1];
   const month36 = monthly.find((m) => m.month === 36) ?? last;
-  const minimumAdditionalFundingRequired = lowest.lowestBankCash.lt(0)
-    ? lowest.lowestBankCash.abs()
-    : d(0);
-  /** Until F&F / stake split is modeled, any gap rolls into founder equity planning total */
-  const plannedFounderEquityTotal = founderEquity.plus(minimumAdditionalFundingRequired);
-  const founderEquityTopUpSuggested = minimumAdditionalFundingRequired;
+  const fundingGap = lowest.lowestBankCash.lt(0) ? lowest.lowestBankCash.abs() : d(0);
+  const fundingSurplus = lowest.lowestBankCash.gt(0) ? lowest.lowestBankCash : d(0);
+  const minimumTotalFundingRequired = totalPlannedFunding.plus(fundingGap);
 
   return {
     lowestBankCash: lowest.lowestBankCash,
     lowestBankCashMonth: lowest.lowestBankCashMonth,
-    minimumAdditionalFundingRequired,
-    plannedFounderEquityTotal,
-    founderEquityTopUpSuggested,
+    totalPlannedFunding,
+    fundingGap,
+    minimumTotalFundingRequired,
+    fundingSurplus,
+    minimumAdditionalFundingRequired: fundingGap,
     bankCashPositiveMonth:
       monthly.find((m) => m.bankCashBalance.gte(0))?.month ??
       (openingBankCashAfterLaunch.gte(0) ? 0 : null),

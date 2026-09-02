@@ -117,31 +117,28 @@ export default function CashFlowPage() {
           </p>
         </CardHeader>
         <CardContent>
-          {health.founderEquityTopUpSuggested.gt(0) ? (
+          {health.fundingGap.gt(0) ? (
             <div className="mb-4 rounded-lg border border-[#E8E2D9] bg-[#FAF8F5] px-4 py-3 text-sm text-[#6B6560]">
-              <p className="font-medium text-[#2C2825]">Founder equity planning total</p>
+              <p className="font-medium text-[#2C2825]">Funding gap</p>
               <p className="mt-1">
-                Entered founder equity ({formatINR(launch.founderEquity)}) is{" "}
-                {formatINR(health.founderEquityTopUpSuggested)} below what bank cash needs at the
-                lowest point. For planning, use{" "}
-                <strong>{formatINR(health.plannedFounderEquityTotal)}</strong> as your full
-                founder-side raise — your cash plus friends &amp; family until stake split is
-                modeled. Edit on Assumptions → Financing.
+                Planned founder funding ({formatINR(launch.founderEquity)}) leaves bank cash{" "}
+                {formatINR(health.fundingGap)} short at the lowest point (month{" "}
+                {health.lowestBankCashMonth}). Minimum total funding required:{" "}
+                <strong>{formatINR(health.minimumTotalFundingRequired)}</strong>. Edit on
+                Assumptions → Financing.
               </p>
             </div>
           ) : (
             <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              Founder equity ({formatINR(launch.founderEquity)}) covers launch and early bank cash
-              under this plan.
+              Planned funding ({formatINR(health.totalPlannedFunding)}) covers launch and early
+              bank cash under this plan.
             </div>
           )}
 
           <div className="mb-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <p className="text-xs text-[#A39E98]">Founder equity (planning total)</p>
-              <p className="font-medium text-[#2C2825]">
-                {formatINR(health.plannedFounderEquityTotal)}
-              </p>
+              <p className="text-xs text-[#A39E98]">Founder funding planned</p>
+              <p className="font-medium text-[#2C2825]">{formatINR(launch.founderEquity)}</p>
             </div>
             <div>
               <p className="text-xs text-[#A39E98]">Lowest cash point</p>
@@ -153,6 +150,14 @@ export default function CashFlowPage() {
               <p className="text-xs text-[#A39E98]">Cash required at launch</p>
               <p className="font-medium text-[#2C2825]">
                 {formatINR(launch.totalCashRequiredAtLaunch)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[#A39E98]">
+                {health.fundingGap.gt(0) ? "Funding gap" : "Funding surplus"}
+              </p>
+              <p className="font-medium text-[#2C2825]">
+                {formatINR(health.fundingGap.gt(0) ? health.fundingGap : health.fundingSurplus)}
               </p>
             </div>
           </div>

@@ -7,9 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { BrandItem } from "@/lib/finance/schemas";
 import { cn } from "@/lib/cn";
-import { Plus, Grid, List } from "lucide-react";
+import { Plus, Grid, List, ExternalLink } from "lucide-react";
 import { persistenceService } from "@/lib/data/local/persistence-service";
 import { useAssetUrl } from "@/hooks/use-asset-url";
+import {
+  isSiteSharedBrandItem,
+  SITE_SHARED_BRAND_ITEMS,
+} from "@/lib/finance/site-shared-brand";
+import { Badge } from "@/components/ui/badge";
 
 const ADD_TYPES: Array<{ type: BrandItem["type"]; label: string }> = [
   { type: "note", label: "Write a note" },
@@ -45,7 +50,10 @@ export default function BrandPage() {
   const [linkInput, setLinkInput] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const items = state.brandItems.filter((i) => i.status === "active");
+  const items = [
+    ...SITE_SHARED_BRAND_ITEMS,
+    ...state.brandItems.filter((i) => i.status === "active"),
+  ];
 
   const handleAddType = (type: BrandItem["type"]) => {
     if (type === "image") {
@@ -153,6 +161,7 @@ export default function BrandPage() {
             <BrandCard
               key={item.id}
               item={item}
+              readOnly={isSiteSharedBrandItem(item.id)}
               onUpdate={(u) => updateBrandItem(item.id, u)}
               onDelete={() => deleteBrandItem(item.id)}
               onArchive={() => archiveBrandItem(item.id, true)}
@@ -161,21 +170,42 @@ export default function BrandPage() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((item) => (
+          {items.map((item) => {
+            const readOnly = isSiteSharedBrandItem(item.id);
+            return (
             <li key={item.id} className="card-surface flex items-start justify-between gap-3">
               <div>
+                {readOnly && (
+                  <Badge variant="secondary" className="mb-1 text-[10px]">
+                    Shared workspace
+                  </Badge>
+                )}
                 <p className="text-body font-medium">{item.title}</p>
                 <p className="text-caption uppercase">{item.type.replace(/_/g, " ")}</p>
                 {item.description && (
                   <p className="text-body-sm mt-1 text-[var(--text-secondary)]">{item.description}</p>
                 )}
+                {item.sourceUrl && (
+                  <a
+                    href={item.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-caption mt-1 inline-flex items-center gap-1 text-[var(--accent)] underline"
+                  >
+                    Open in Notion
+                    <ExternalLink className="h-3 w-3" aria-hidden />
+                  </a>
+                )}
               </div>
-              <ItemActions
-                onDelete={() => deleteBrandItem(item.id)}
-                onArchive={() => archiveBrandItem(item.id, true)}
-              />
+              {!readOnly && (
+                <ItemActions
+                  onDelete={() => deleteBrandItem(item.id)}
+                  onArchive={() => archiveBrandItem(item.id, true)}
+                />
+              )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
@@ -184,11 +214,13 @@ export default function BrandPage() {
 
 function BrandCard({
   item,
+  readOnly,
   onUpdate,
   onDelete,
   onArchive,
 }: {
   item: BrandItem;
+  readOnly?: boolean;
   onUpdate: (u: Partial<BrandItem>) => void;
   onDelete: () => void;
   onArchive: () => void;
@@ -197,10 +229,36 @@ function BrandCard({
 
   return (
     <div className="card-surface">
+      {readOnly && (
+        <Badge variant="secondary" className="mb-2 text-[10px]">
+          Shared workspace
+        </Badge>
+      )}
       {displayUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={displayUrl} alt={item.title} className="mb-2 max-h-40 w-full rounded object-cover" />
       )}
+      {readOnly ? (
+        <>
+          <p className="text-body font-medium text-[#2C2825]">{item.title}</p>
+          <p className="text-caption mt-1 uppercase">{item.type.replace(/_/g, " ")}</p>
+          {item.description && (
+            <p className="mt-2 text-body-sm text-[var(--text-secondary)]">{item.description}</p>
+          )}
+          {item.sourceUrl && (
+            <a
+              href={item.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] underline"
+            >
+              Open in Notion
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+            </a>
+          )}
+        </>
+      ) : (
+        <>
       <Input
         value={item.title}
         onChange={(e) => onUpdate({ title: e.target.value })}
@@ -227,6 +285,8 @@ function BrandCard({
       <div className="mt-2">
         <ItemActions onDelete={onDelete} onArchive={onArchive} />
       </div>
+        </>
+      )}
     </div>
   );
 }

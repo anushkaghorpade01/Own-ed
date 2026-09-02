@@ -13,6 +13,7 @@ import { Check } from "lucide-react";
 import { CollapsibleSection } from "@/components/shared/metric-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { cn } from "@/lib/cn";
 import {
   AssumptionsSearchProvider,
@@ -99,6 +100,12 @@ export function useSectionContext<T extends Record<string, unknown>>() {
   const ctx = useContext(AssumptionSectionContext);
   if (!ctx) throw new Error("Draft field must be used inside AssumptionSection");
   return ctx as AssumptionSectionContextValue<T>;
+}
+
+/** Returns null when used outside AssumptionSection (e.g. standalone preview). */
+export function useSectionContextOptional<T extends Record<string, unknown>>() {
+  const ctx = useContext(AssumptionSectionContext);
+  return ctx as AssumptionSectionContextValue<T> | null;
 }
 
 export function AssumptionSection<T extends Record<string, unknown>>({
@@ -201,6 +208,7 @@ export function DraftNumberField<K extends string>({
   label,
   suffix,
   help,
+  tooltip,
   inputClassName,
   integer,
   min,
@@ -210,6 +218,7 @@ export function DraftNumberField<K extends string>({
   label: string;
   suffix?: string;
   help?: string;
+  tooltip?: string;
   inputClassName?: string;
   integer?: boolean;
   min?: number;
@@ -223,7 +232,10 @@ export function DraftNumberField<K extends string>({
 
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-[#6B6560]">{label}</label>
+      <label className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B6560]">
+        <span>{label}</span>
+        {tooltip && <InfoTooltip content={tooltip} label={`About ${label}`} />}
+      </label>
       <div className="flex items-center gap-2">
         <Input
           type="number"

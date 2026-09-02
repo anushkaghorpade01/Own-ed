@@ -250,8 +250,7 @@ export function calculateCashFlow(
     initialInvestment,
     investmentRecoveredMonth,
     launch.openingBankCashAfterLaunch,
-    launch.founderEquity,
-    launch.loanAmount
+    launch.totalFunding
   );
 
   return {

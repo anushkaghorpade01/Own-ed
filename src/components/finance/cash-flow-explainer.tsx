@@ -65,8 +65,8 @@ export function CashFlowCalculationExplainer({ month = 1 }: { month?: number }) 
                 `= Ending bank cash: ${formatINR(m.bankCashBalance)}`,
                 "",
                 "Working capital is funding retained in the bank — not subtracted as an outflow.",
-                health.minimumAdditionalFundingRequired.gt(0)
-                  ? `Funding gap: ${formatINR(health.minimumAdditionalFundingRequired)} additional liquidity needed at lowest point.`
+                health.fundingGap.gt(0)
+                  ? `Funding gap: ${formatINR(health.fundingGap)} additional liquidity needed at lowest point (month ${health.lowestBankCashMonth}). Minimum total funding: ${formatINR(health.minimumTotalFundingRequired)}.`
                   : "No funding gap under current plan.",
               ]
                 .filter(Boolean)
