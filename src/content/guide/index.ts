@@ -1,6 +1,7 @@
 import type { GuideGroup, GuideSection } from "./types";
 import { gettingStartedSections } from "./getting-started";
 import { mathSections } from "./math";
+import { profitViewsSection } from "./profit-views";
 import { workspaceSections } from "./workspace";
 import {
   usingOwnedSections,
@@ -9,7 +10,7 @@ import {
 
 export const GUIDE_GROUPS: GuideGroup[] = [
   { category: "Getting Started", sections: gettingStartedSections },
-  { category: "Math", sections: mathSections },
+  { category: "Math", sections: [profitViewsSection, ...mathSections] },
   { category: "Workspace", sections: workspaceSections },
   { category: "Using Own-ed", sections: usingOwnedSections },
   { category: "Troubleshooting", sections: troubleshootingSections },

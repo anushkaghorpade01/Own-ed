@@ -1,13 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useFinanceModel } from "@/hooks/use-finance-model";
 import { SectionHeader, SampleBanner } from "@/components/shared/metric-card";
 import { formatINR, formatPercent } from "@/lib/format/currency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TableHeaderWithTooltip } from "@/components/ui/info-tooltip";
+import { TableHeaderWithTooltip, MetricLabel } from "@/components/ui/info-tooltip";
+import {
+  PLANNING_NET_PROFIT_TOOLTIP,
+  PROFIT_VIEWS_GUIDE_HREF,
+  STEADY_STATE_PL_TOOLTIP,
+} from "@/lib/finance/profit-view-copy";
 import type { YearlyPLRow } from "@/lib/finance/engine/yearly-pl";
 import {
   ExpandablePLRow,
@@ -100,7 +106,7 @@ export default function PLPage() {
               variant={view === "monthly" ? "default" : "ghost"}
               onClick={() => setView("monthly")}
             >
-              Monthly
+              Steady-state
             </Button>
             <Button
               type="button"
@@ -118,7 +124,20 @@ export default function PLPage() {
       {view === "monthly" ? (
         <Card>
           <CardHeader>
-            <CardTitle>Monthly P&L (Projected)</CardTitle>
+            <MetricLabel
+              label="Steady-state monthly P&L · target occupancy"
+              tooltip={STEADY_STATE_PL_TOOLTIP}
+              className="text-base font-semibold text-[#2C2825]"
+            />
+            <p className="text-xs text-[#6B6560]">
+              A representative month at your target booked occupancy (
+              {formatPercent(model.assumptions.projectedBookedOccupancyPct)}). This is different
+              from a specific month in your ramp-up forecast — see{" "}
+              <Link href="/math/sales-target" className="underline">
+                Sales &amp; Client Target
+              </Link>{" "}
+              for Month X forecast profit.
+            </p>
           </CardHeader>
           <CardContent className="text-sm">
             <ExpandablePLRow
@@ -162,6 +181,12 @@ export default function PLPage() {
               indent
             />
             <ExpandablePLRow label="Planning net profit" value={formatINR(pl.netProfit)} bold />
+            <p className="text-caption mt-1 pl-0 text-[var(--text-muted)]">{PLANNING_NET_PROFIT_TOOLTIP}</p>
+            <p className="text-caption mt-2 text-[var(--text-muted)]">
+              <Link href={PROFIT_VIEWS_GUIDE_HREF} className="underline hover:text-[var(--text-primary)]">
+                How is this different from Month X forecast profit?
+              </Link>
+            </p>
             <ExpandablePLRow
               label="Net profit margin"
               value={formatPercent(

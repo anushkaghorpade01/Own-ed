@@ -20,8 +20,10 @@ import {
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useApp } from "@/lib/store/app-store";
 import { GlobalSearch } from "./global-search";
+import { AskOwnedPanel } from "@/components/ask-owned/ask-owned-panel";
 import { LocalSaveStatus } from "./local-save-status";
 import { useState, useEffect } from "react";
+import { MessageCircleQuestion } from "lucide-react";
 
 const mainNav = [
   { href: "/", label: "Home", icon: Home },
@@ -39,6 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { undo } = useApp();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const isMath = pathname.startsWith("/math");
 
   useEffect(() => {
@@ -65,6 +68,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Own-ed
           </Link>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAskOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-[#E0DAD2] bg-white/60 px-3 py-1.5 text-xs font-semibold text-[#2C2825] hover:border-[#C4A882]/40"
+            >
+              <MessageCircleQuestion className="h-3.5 w-3.5" />
+              Ask OWNED
+            </button>
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
@@ -129,6 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
       <main className={cn("mx-auto max-w-[1400px] px-[var(--space-page-x)] py-[var(--space-page-y)]", isMath && "max-w-[1500px]")}>{children}</main>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      <AskOwnedPanel open={askOpen} onOpenChange={setAskOpen} />
     </div>
     </Tooltip.Provider>
   );

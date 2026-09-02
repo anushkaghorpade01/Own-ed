@@ -9,10 +9,10 @@ const MATH_NAV = [
     group: "Plan",
     items: [
       { href: "/math", label: "Overview" },
+      { href: "/math/assumptions", label: "Assumptions" },
       { href: "/math/scenarios", label: "Scenario Analysis" },
       { href: "/math/sales-target", label: "Sales & Client Target" },
       { href: "/math/optimise", label: "Optimise" },
-      { href: "/math/assumptions", label: "Assumptions" },
     ],
   },
   {

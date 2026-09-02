@@ -105,7 +105,10 @@ export interface SalesTargetAnalysis {
   targetMonth: number;
   targetProfit: Decimal;
   forecastProfit: Decimal;
+  /** max(0, target − forecast) — amount still needed to hit target */
   profitGap: Decimal;
+  /** max(0, forecast − target) — when forecast already exceeds target */
+  profitSurplus: Decimal;
   /** Proportional mix suggestion using service demand weights — starting point only */
   suggestedMix: SalesTargetSolution;
   forecastSalesByProduct: Record<string, number>;
@@ -769,6 +772,18 @@ export function forecastSalesByProduct(assumptions: FinanceAssumptions): Record<
   return map;
 }
 
+/** Authoritative Month X planning net profit from the monthly projection engine. */
+export function getMonthForecastProfit(
+  assumptions: FinanceAssumptions,
+  targetMonth: number
+): Decimal {
+  const model = runFinanceModel(assumptions);
+  const snapshot =
+    model.monthlyProjection.find((m) => m.month === targetMonth) ??
+    model.monthlyProjection[targetMonth - 1];
+  return snapshot?.pl.netProfit ?? d(0);
+}
+
 export function runSalesTargetAnalysis(
   assumptions: FinanceAssumptions,
   prefsOverride?: Partial<SalesTargetPreferences>
@@ -781,9 +796,9 @@ export function runSalesTargetAnalysis(
   const targetProfit = d(prefs.targetMonthlyNetProfit);
 
   const monthAssumptions = assumptionsForMonth(assumptions, targetMonth);
-  const forecastModel = runFinanceModel(monthAssumptions);
-  const forecastProfit = forecastModel.pl.netProfit;
-  const profitGap = targetProfit.minus(forecastProfit);
+  const forecastProfit = getMonthForecastProfit(assumptions, targetMonth);
+  const profitGap = Decimal.max(0, targetProfit.minus(forecastProfit));
+  const profitSurplus = Decimal.max(0, forecastProfit.minus(targetProfit));
 
   const suggestedQuantities = suggestSalesMixFromServiceDemand(
     assumptions,
@@ -815,6 +830,7 @@ export function runSalesTargetAnalysis(
     targetProfit,
     forecastProfit,
     profitGap,
+    profitSurplus,
     suggestedMix,
     forecastSalesByProduct: forecastSales,
     requiredVsForecast,

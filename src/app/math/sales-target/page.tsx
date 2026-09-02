@@ -8,7 +8,13 @@ import { FinanceTable, FinanceTableRow } from "@/components/ui/finance-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Explainer } from "@/components/ui/explainer";
+import { MetricLabel } from "@/components/ui/info-tooltip";
 import { formatINR, formatPercent } from "@/lib/format/currency";
+import {
+  MONTH_FORECAST_PROFIT_TOOLTIP,
+  PROFIT_VIEWS_GUIDE_HREF,
+  SALES_PLAN_PROFIT_TOOLTIP,
+} from "@/lib/finance/profit-view-copy";
 import {
   runSalesTargetAnalysis,
   evaluateSalesPlan,
@@ -39,16 +45,22 @@ function ProfitSummary({
   sol,
   targetProfit,
   label,
+  labelTooltip,
 }: {
   sol: SalesTargetSolution;
   targetProfit: number;
   label: string;
+  labelTooltip?: string;
 }) {
   const gap = sol.planningNetProfit.toNumber() - targetProfit;
   return (
     <div className="mt-4 grid gap-2 border-t border-[var(--border-subtle)] pt-4 sm:grid-cols-2">
       <div className="flex justify-between text-body-sm sm:col-span-2">
-        <span className="font-medium">{label}</span>
+        {labelTooltip ? (
+          <MetricLabel label={label} tooltip={labelTooltip} />
+        ) : (
+          <span className="font-medium">{label}</span>
+        )}
         <strong className={cn(gap >= 0 ? "text-emerald-800" : "text-red-800")}>
           {formatINR(sol.planningNetProfit)}
         </strong>
@@ -251,21 +263,39 @@ export default function SalesTargetPage() {
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <div className="card-surface">
-          <p className="text-label">Current forecast profit</p>
+          <MetricLabel
+            label={`Month ${targetMonth} forecast profit`}
+            tooltip={MONTH_FORECAST_PROFIT_TOOLTIP}
+            tooltipLabel={`About Month ${targetMonth} forecast profit`}
+          />
           <p className="text-kpi mt-1">{formatINR(analysis.forecastProfit)}</p>
-          <p className="text-caption mt-1 text-[var(--text-muted)]">Month {targetMonth} P&amp;L</p>
+          <p className="text-caption mt-1 text-[var(--text-muted)]">
+            What Own-ed currently expects in Month {targetMonth} from your forecast assumptions.
+          </p>
         </div>
         <div className="card-surface">
-          <p className="text-label">Your target</p>
+          <p className="text-label">Target monthly profit</p>
           <p className="text-kpi mt-1">{formatINR(analysis.targetProfit)}</p>
         </div>
         <div className="card-surface">
-          <p className="text-label">Forecast gap to close</p>
+          <p className="text-label">
+            {analysis.profitSurplus.gt(0) ? "Surplus to target" : "Gap to target"}
+          </p>
           <p className="text-kpi mt-1">
-            {analysis.profitGap.lte(0) ? "On target" : formatINR(analysis.profitGap)}
+            {analysis.profitSurplus.gt(0)
+              ? formatINR(analysis.profitSurplus)
+              : analysis.profitGap.lte(0)
+                ? "On target"
+                : formatINR(analysis.profitGap)}
           </p>
         </div>
       </div>
+
+      <p className="text-caption mb-4 text-[var(--text-muted)]">
+        <Link href={PROFIT_VIEWS_GUIDE_HREF} className="underline hover:text-[var(--text-primary)]">
+          Why is this profit different from my P&L?
+        </Link>
+      </p>
 
       <section className="card-surface mb-4 border-2 border-[var(--border-subtle)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -336,7 +366,8 @@ export default function SalesTargetPage() {
         <ProfitSummary
           sol={customSol}
           targetProfit={targetProfit}
-          label="Planning net profit from your mix"
+          label="Your sales plan profit"
+          labelTooltip={SALES_PLAN_PROFIT_TOOLTIP}
         />
       </section>
 

@@ -2,6 +2,19 @@ import type { GuideSection } from "./types";
 
 export const usingOwnedSections: GuideSection[] = [
   {
+    id: "ask-owned",
+    title: "Ask OWNED",
+    category: "Using Own-ed",
+    keywords: ["ask", "assistant", "help", "local", "offline", "what-if"],
+    aliases: ["ask owned", "local assistant"],
+    body: [
+      "Ask OWNED is a local model assistant. It uses OWNED's calculations and Guide to explain numbers, answer common questions, and run temporary what-if checks.",
+      "It does not send your data to an external AI service. Everything runs on this device using your current assumptions and the finance engine.",
+      "If Ask OWNED cannot answer confidently, it will say so and point you to the Guide or suggested questions.",
+      "What-if checks preview changes without saving. Use Apply to assumptions only when you want to keep a change.",
+    ],
+  },
+  {
     id: "you-vs-owned",
     title: "What you set vs what Own-ed calculates",
     category: "Using Own-ed",

@@ -127,15 +127,18 @@ export const mathSections: GuideSection[] = [
     keywords: ["p&l", "profit", "net profit", "ebitda", "net sales", "revenue", "loss"],
     aliases: ["profit and loss", "money", "earnings"],
     body: [
-      "Answers: does this version of the studio make money?",
-      "Net sales (ex-GST) minus direct costs = gross profit. Minus operating expenses = EBITDA. After depreciation, interest, and tax = net profit.",
-      "Monthly view reflects current assumptions; yearly views use escalation where modelled.",
+      "Answers: does this version of the studio make money once operating at target occupancy?",
+      "The steady-state monthly view shows a representative month at your target booked occupancy — not a specific ramp-up month (see Sales & Client Target for Month X forecast profit).",
+      "Net sales (ex-GST) minus direct costs = gross profit. Minus operating expenses = EBITDA. After depreciation, interest, and tax = planning net profit.",
+      "Yearly views sum month-by-month from the projection engine, including escalation where modelled.",
     ],
     payAttention: [
       "Net sales ≠ customer cash if GST registered — see Pricing.",
       "EBITDA is operating profit before depreciation and financing.",
+      "Depreciation is included in planning net profit even though it is not a monthly cash outflow.",
     ],
     related: [
+      { id: "profit-views", label: "Why different profit numbers?" },
       { id: "cash-flow", label: "Cash Flow" },
       { id: "break-even", label: "Break-even" },
     ],
@@ -193,14 +196,16 @@ export const mathSections: GuideSection[] = [
     aliases: ["profit target", "how many clients", "sales target"],
     body: [
       "Starts with target monthly net profit. Own-ed works backwards to required sales, product mix, estimated clients, credits created, expected bookings, and capacity feasibility.",
-      "Profit is the target. Occupancy and capacity status are feasibility checks — not inputs you set here.",
-      "You can also edit your own product mix and see profit update live.",
+      "Month X forecast profit comes from the monthly projection for your selected month — not from the quantities in Your Sales Plan.",
+      "You can also edit your own product mix and see profit update live as a separate what-if.",
     ],
     payAttention: [
       "Sales required ≠ new clients required.",
       "One 8-pack sale is one transaction but many future bookings.",
+      "See Why am I seeing different profit numbers? if Month X forecast differs from steady-state P&L.",
     ],
     related: [
+      { id: "profit-views", label: "Why different profit numbers?" },
       { id: "sales-vs-clients", label: "Sales vs clients" },
       { id: "credits", label: "Credits" },
     ],

@@ -35,6 +35,11 @@ describe("Guide search", () => {
     expect(results.some((r) => r.section.id === "sales-client-target")).toBe(true);
   });
 
+  it("finds profit views section", () => {
+    const results = searchGuide("different profit");
+    expect(results.some((r) => r.section.id === "profit-views")).toBe(true);
+  });
+
   it("finds brand and space via pictures alias", () => {
     const results = searchGuide("pictures");
     const ids = results.map((r) => r.section.id);
