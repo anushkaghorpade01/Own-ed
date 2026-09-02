@@ -228,9 +228,12 @@ function applyPricingMode(
 }
 
 export const LEVER_STATUS_HELP: Record<LeverStatus, string> = {
-  open: "Optimise may adjust this lever in recommended paths.",
-  prefer_not: "Available, but only if other open levers cannot close the gap.",
-  locked: "Held fixed — excluded from all path and solver calculations.",
+  open:
+    "You're happy for OWNED to suggest changes here — for example, raising occupancy or adjusting pack prices — when building a path to your profit target.",
+  prefer_not:
+    "Change this only if nothing else gets you there. OWNED will try your other open settings first.",
+  locked:
+    "Keep this fixed at your current assumptions. OWNED will not suggest changes here.",
 };
 
 export function describeLeverStatusChange(
@@ -239,11 +242,11 @@ export function describeLeverStatusChange(
 ): string {
   switch (status) {
     case "locked":
-      return `${leverLabel} is now locked. It will stay fixed in all recommended paths.`;
+      return `${leverLabel} is locked — OWNED will leave it unchanged in every suggestion.`;
     case "prefer_not":
-      return `${leverLabel} is set to prefer not. Optimise will try other levers first.`;
+      return `${leverLabel} is set to prefer not — OWNED will only touch this if other options aren't enough.`;
     default:
-      return `${leverLabel} is now open. Optimise may suggest changes here.`;
+      return `${leverLabel} is open — OWNED may suggest changing this to reach your target.`;
   }
 }
 

@@ -285,6 +285,8 @@ export const SalesTargetPreferencesSchema = z.object({
   leadToPaidPct: z.number().min(0).max(100).optional(),
   /** Manual sales mix quantities for explore mode (productId → count) */
   customSalesQuantitiesByProductId: z.record(z.string(), z.number().min(0)).default({}),
+  /** Target commercial net sales for revenue-backwards sales plan (0 = use steady-state P&L) */
+  targetMonthlyNetSales: z.number().min(0).default(0),
 });
 
 export type SalesTargetPreferences = z.infer<typeof SalesTargetPreferencesSchema>;

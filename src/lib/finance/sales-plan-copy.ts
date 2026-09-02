@@ -36,7 +36,16 @@ export const LOAD_FORECAST_TOOLTIP =
   "Loads OWNED's current forecasted sales quantities for the selected month into Your Sales Plan so you can edit and test them.";
 
 export const SUGGEST_FROM_MIX_TOOLTIP =
-  "Creates a starting Sales Plan designed to roughly reflect your forecast Service Demand Mix.\n\nYou can freely change any quantity after it loads.";
+  "Creates a starting Sales Plan designed to roughly reflect your forecast Service Demand Mix.\n\nYou can freely change any quantity after it loads.\n\nTargets your monthly profit goal — not net sales.";
+
+export const NET_SALES_TARGET_TOOLTIP =
+  "Enter the commercial net sales you want to reach this month.\n\nOWNED suggests how many of each product to sell, weighted by your Service Demand Mix (same logic as Suggest from service mix, but stopping at revenue instead of profit).\n\nNet sales here = transaction value when sold (pack price at purchase), not P&L booking economics.";
+
+export const USE_NET_SALES_PLAN_TOOLTIP =
+  "Loads the suggested quantities into Your Sales Plan so you can edit, check profit, and run the capacity check.";
+
+export const STEADY_STATE_NET_SALES_TOOLTIP =
+  "Sets the target to steady-state P&L net sales at your target booked occupancy.\n\nP&L may include duo, workshops and other revenue outside the sales plan grid — your plan covers core products only.";
 
 export const CREDITS_CAPACITY_TOOLTIP =
   "Credits matter because they create future service demand.\n\nThey do not reduce the net sales value of a pack you have already sold.\n\nOWNED uses expected credit usage here only to check whether your studio can fulfil the bookings.";

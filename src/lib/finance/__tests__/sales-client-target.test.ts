@@ -11,9 +11,12 @@ import {
   calculateClientBaseRequirement,
   computeProductCommercialEconomics,
   getCoreSalesProducts,
+  getSteadyStatePlNetSales,
   runSalesTargetAnalysis,
   solveSalesForProfitTarget,
   suggestSalesMixFromServiceDemand,
+  suggestSalesMixForNetSalesTarget,
+  calculateCommercialTotals,
 } from "../engine/sales-client-target";
 import {
   expectedCreditsRedeemedInMonth,
@@ -287,5 +290,50 @@ describe("Sales & Client Target engine", () => {
     const greedySingleCount = Object.values(greedySingle).filter((q) => q > 0).length;
     expect(dropInOnlyCount).toBeGreaterThan(1);
     expect(greedySingleCount).toBeLessThanOrEqual(1);
+  });
+
+  it("net sales target solver reaches revenue goal with service demand mix", () => {
+    const assumptions = createSampleAssumptions();
+    const target = 500_000;
+    const quantities = suggestSalesMixForNetSalesTarget(assumptions, target, 8);
+    const commercial = calculateCommercialTotals(assumptions, quantities);
+
+    expect(commercial.netSales.gte(target)).toBe(true);
+    expect(Object.values(quantities).filter((q) => q > 0).length).toBeGreaterThan(1);
+  });
+
+  it("higher net sales target requires more sales units", () => {
+    const assumptions = createSampleAssumptions();
+    const low = suggestSalesMixForNetSalesTarget(assumptions, 300_000, 8);
+    const high = suggestSalesMixForNetSalesTarget(assumptions, 700_000, 8);
+    const sumUnits = (q: Record<string, number>) =>
+      Object.values(q).reduce((a, b) => a + b, 0);
+    expect(sumUnits(high)).toBeGreaterThan(sumUnits(low));
+  });
+
+  it("runSalesTargetAnalysis includes net sales plan defaulting to steady-state P&L", () => {
+    const assumptions = createSampleAssumptions();
+    const analysis = runSalesTargetAnalysis(assumptions, { targetMonth: 8 });
+    const steady = getSteadyStatePlNetSales(assumptions);
+
+    expect(analysis.netSalesPlan.targetNetSales.toNumber()).toBeCloseTo(steady.toNumber(), 0);
+    expect(analysis.netSalesPlan.achievedNetSales.gte(analysis.netSalesPlan.targetNetSales)).toBe(
+      true
+    );
+    expect(analysis.netSalesPlan.steadyStatePlNetSales.toNumber()).toBeCloseTo(
+      steady.toNumber(),
+      0
+    );
+  });
+
+  it("custom net sales target overrides steady-state default", () => {
+    const assumptions = createSampleAssumptions();
+    const analysis = runSalesTargetAnalysis(assumptions, {
+      targetMonthlyNetSales: 400_000,
+      targetMonth: 8,
+    });
+
+    expect(analysis.netSalesPlan.targetNetSales.toNumber()).toBe(400_000);
+    expect(analysis.netSalesPlan.achievedNetSales.gte(400_000)).toBe(true);
   });
 });

@@ -379,6 +379,7 @@ export function createSampleAssumptions(): FinanceAssumptions {
     existingActiveClientsByProductId: {},
     customSalesMixPct: {},
     customSalesQuantitiesByProductId: {},
+    targetMonthlyNetSales: 0,
     capacityTightThresholdPct: 85,
   },
   customExpenses: [],

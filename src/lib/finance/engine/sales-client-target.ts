@@ -134,7 +134,18 @@ export interface SalesTargetAnalysis {
     forecast: number;
     gap: number;
   }>;
+  /** Revenue-backwards sales plan at targetMonthlyNetSales (or steady-state P&L when 0) */
+  netSalesPlan: NetSalesTargetPlan;
   engineVersion: string;
+}
+
+export interface NetSalesTargetPlan {
+  targetNetSales: Decimal;
+  achievedNetSales: Decimal;
+  shortfall: Decimal;
+  quantities: Record<string, number>;
+  solution: SalesTargetSolution;
+  steadyStatePlNetSales: Decimal;
 }
 
 export interface ProductCommercialEconomics {
@@ -680,6 +691,61 @@ export function solveSalesForProfitTarget(
   return quantities;
 }
 
+/** Steady-state P&L net sales at target booked occupancy (full model, incl. duo/workshop/other). */
+export function getSteadyStatePlNetSales(assumptions: FinanceAssumptions): Decimal {
+  return runFinanceModel(assumptions).pl.netRevenue;
+}
+
+export function resolveNetSalesTarget(
+  assumptions: FinanceAssumptions,
+  prefs: SalesTargetPreferences
+): number {
+  if (prefs.targetMonthlyNetSales > 0) {
+    return prefs.targetMonthlyNetSales;
+  }
+  return getSteadyStatePlNetSales(assumptions).toNumber();
+}
+
+export function solveSalesForNetSalesTarget(
+  assumptions: FinanceAssumptions,
+  targetNetSales: number,
+  mode: SalesSolutionMode,
+  targetMonth: number,
+  prefsOverride?: Partial<SalesTargetPreferences>
+): Record<string, number> {
+  const prefs = SalesTargetPreferencesSchema.parse({
+    ...resolvePreferences(assumptions),
+    ...prefsOverride,
+    solutionMode: mode,
+  });
+
+  const monthAssumptions = assumptionsForMonth(assumptions, targetMonth);
+  const products = getCoreSalesProducts(monthAssumptions);
+  const economics = products.map((p) => computeProductCommercialEconomics(p, monthAssumptions));
+  const positive = economics.filter((e) => e.netSalesPerSale.gt(0));
+  if (positive.length === 0 || targetNetSales <= 0) {
+    return Object.fromEntries(products.map((p) => [p.id, 0]));
+  }
+
+  const weights = salesMixWeights(products, positive, prefs, mode);
+  const quantities: Record<string, number> = Object.fromEntries(
+    products.map((p) => [p.id, 0])
+  );
+  const target = d(targetNetSales);
+
+  const maxIterations = 50_000;
+  for (let i = 0; i < maxIterations; i++) {
+    const commercial = calculateCommercialTotals(monthAssumptions, quantities);
+    if (commercial.netSales.gte(target)) break;
+
+    const next = pickNextProduct(positive, weights, mode, quantities);
+    if (!next.netSalesPerSale.isPositive()) break;
+    quantities[next.product.id] = (quantities[next.product.id] ?? 0) + 1;
+  }
+
+  return quantities;
+}
+
 function buildSolution(
   assumptions: FinanceAssumptions,
   quantities: Record<string, number>,
@@ -822,6 +888,55 @@ export function suggestSalesMixFromServiceDemand(
   });
 }
 
+/**
+ * Suggest sales quantities that reach a commercial net sales target while preserving
+ * service demand mix (same allocation logic as profit suggestion, revenue stop condition).
+ */
+export function suggestSalesMixForNetSalesTarget(
+  assumptions: FinanceAssumptions,
+  targetNetSales: number,
+  targetMonth: number,
+  prefsOverride?: Partial<SalesTargetPreferences>
+): Record<string, number> {
+  const mixPct = buildServiceDemandMixPct(assumptions);
+  return solveSalesForNetSalesTarget(assumptions, targetNetSales, "balanced", targetMonth, {
+    ...prefsOverride,
+    salesMixMode: "custom",
+    customSalesMixPct: mixPct,
+  });
+}
+
+export function buildNetSalesTargetPlan(
+  assumptions: FinanceAssumptions,
+  targetNetSales: number,
+  targetMonth: number,
+  prefs: SalesTargetPreferences
+): NetSalesTargetPlan {
+  const quantities = suggestSalesMixForNetSalesTarget(
+    assumptions,
+    targetNetSales,
+    targetMonth,
+    prefs
+  );
+  const solution = buildSolution(
+    assumptions,
+    quantities,
+    "balanced",
+    prefs.targetMonthlyNetProfit,
+    targetMonth,
+    prefs
+  );
+  const target = d(targetNetSales);
+  return {
+    targetNetSales: target,
+    achievedNetSales: solution.netSales,
+    shortfall: Decimal.max(0, target.minus(solution.netSales)),
+    quantities,
+    solution,
+    steadyStatePlNetSales: getSteadyStatePlNetSales(assumptions),
+  };
+}
+
 export function forecastSalesByProduct(assumptions: FinanceAssumptions): Record<string, number> {
   const map: Record<string, number> = {};
   for (const p of listFlexiblePacks(assumptions)) {
@@ -887,6 +1002,14 @@ export function runSalesTargetAnalysis(
     gap: q.quantity - (forecastSales[q.productId] ?? 0),
   }));
 
+  const netSalesTargetAmount = resolveNetSalesTarget(assumptions, prefs);
+  const netSalesPlan = buildNetSalesTargetPlan(
+    assumptions,
+    netSalesTargetAmount,
+    targetMonth,
+    prefs
+  );
+
   return {
     preferences: prefs,
     targetMonth,
@@ -897,6 +1020,7 @@ export function runSalesTargetAnalysis(
     suggestedMix,
     forecastSalesByProduct: forecastSales,
     requiredVsForecast,
+    netSalesPlan,
     engineVersion: SALES_TARGET_ENGINE_VERSION,
   };
 }

@@ -23,8 +23,11 @@ import {
   FEASIBILITY_NOT_DEMAND_TOOLTIP,
   FEASIBLE_TOOLTIP,
   LOAD_FORECAST_TOOLTIP,
+  NET_SALES_TARGET_TOOLTIP,
   SALES_NOT_BOOKINGS_TOOLTIP,
+  STEADY_STATE_NET_SALES_TOOLTIP,
   SUGGEST_FROM_MIX_TOOLTIP,
+  USE_NET_SALES_PLAN_TOOLTIP,
   THREE_STEP,
   YOUR_SALES_PLAN_CAPTION,
   YOUR_SALES_PLAN_TOOLTIP,
@@ -37,6 +40,7 @@ import {
   calculateAcquisitionFunnel,
   buildServiceDemandMixPct,
   calculateImpliedDeliveryMix,
+  getSteadyStatePlNetSales,
   type SalesTargetSolution,
   type CapacityStatus,
 } from "@/lib/finance/engine/sales-client-target";
@@ -233,10 +237,18 @@ export default function SalesTargetPage() {
     targetMonth: 8,
     solutionMode: "balanced" as const,
     salesMixMode: "auto" as const,
+    targetMonthlyNetSales: 0,
   };
 
   const [targetProfit, setTargetProfit] = useState(prefs.targetMonthlyNetProfit);
   const [targetMonth, setTargetMonth] = useState(prefs.targetMonth);
+  const steadyStateNetSales = useMemo(
+    () => getSteadyStatePlNetSales(state.assumptions).toNumber(),
+    [state.assumptions]
+  );
+  const [targetNetSales, setTargetNetSales] = useState(
+    () => prefs.targetMonthlyNetSales ?? 0
+  );
 
   const products = useMemo(
     () => getCoreSalesProducts(state.assumptions),
@@ -253,9 +265,12 @@ export default function SalesTargetPage() {
       runSalesTargetAnalysis(state.assumptions, {
         targetMonthlyNetProfit: targetProfit,
         targetMonth,
+        targetMonthlyNetSales: targetNetSales,
       }),
-    [state.assumptions, targetProfit, targetMonth]
+    [state.assumptions, targetProfit, targetMonth, targetNetSales]
   );
+
+  const effectiveNetSalesTarget = analysis.netSalesPlan.targetNetSales.toNumber();
 
   const parsedPrefs = SalesTargetPreferencesSchema.parse(prefs);
   const [customQuantities, setCustomQuantities] = useState<Record<string, number>>(() => {
@@ -303,6 +318,7 @@ export default function SalesTargetPage() {
         ...prefs,
         targetMonthlyNetProfit: targetProfit,
         targetMonth,
+        targetMonthlyNetSales: targetNetSales,
         customSalesQuantitiesByProductId: quantities ?? customQuantities,
       }),
     });
@@ -318,6 +334,10 @@ export default function SalesTargetPage() {
       analysis.suggestedMix.quantities.map((q) => [q.productId, q.quantity])
     );
     applyQuantities(next);
+  };
+
+  const applyNetSalesPlan = () => {
+    applyQuantities(analysis.netSalesPlan.quantities);
   };
 
   const loadForecast = () => {
@@ -416,6 +436,86 @@ export default function SalesTargetPage() {
         </Link>
       </p>
 
+      <section className="card-surface page-section">
+        <MetricLabel
+          label="Revenue target → sales plan"
+          tooltip={NET_SALES_TARGET_TOOLTIP}
+          tooltipLabel="Revenue target sales plan"
+          className="text-card-title"
+        />
+        <p className="text-caption mt-1 text-[var(--text-muted)]">
+          If you want this much commercial net sales, here is a mix-weighted starting sales plan.
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-4">
+          <div>
+            <p className="text-label">Target net sales</p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-body-sm text-[var(--text-muted)]">₹</span>
+              <Input
+                type="number"
+                min={0}
+                value={targetNetSales > 0 ? targetNetSales : steadyStateNetSales}
+                onChange={(e) => setTargetNetSales(parseInt(e.target.value, 10) || 0)}
+                onBlur={() => persistPrefs()}
+                className="max-w-[220px] text-tabular"
+              />
+            </div>
+          </div>
+          <TooltipButton
+            label="Use steady-state P&L"
+            tooltip={STEADY_STATE_NET_SALES_TOOLTIP}
+            onClick={() => {
+              setTargetNetSales(0);
+              updateAssumptions({
+                salesTargetPreferences: SalesTargetPreferencesSchema.parse({
+                  ...prefs,
+                  targetMonthlyNetProfit: targetProfit,
+                  targetMonth,
+                  targetMonthlyNetSales: 0,
+                  customSalesQuantitiesByProductId: customQuantities,
+                }),
+              });
+            }}
+          />
+          <TooltipButton
+            label="Apply to sales plan"
+            tooltip={USE_NET_SALES_PLAN_TOOLTIP}
+            onClick={applyNetSalesPlan}
+          />
+        </div>
+
+        <FinanceTable
+          headers={["Product", "Units to sell", "Net sales"]}
+          className="mt-4 max-w-xl"
+        >
+          {analysis.netSalesPlan.solution.productRows.map((row) => (
+            <FinanceTableRow
+              key={row.productId}
+              cells={[
+                row.productName,
+                String(analysis.netSalesPlan.quantities[row.productId] ?? 0),
+                formatINR(row.netSales),
+              ]}
+            />
+          ))}
+          <FinanceTableRow
+            cells={[
+              "Total",
+              "",
+              formatINR(analysis.netSalesPlan.achievedNetSales),
+            ]}
+            className="font-medium"
+          />
+        </FinanceTable>
+
+        <p className="text-caption mt-3 text-[var(--text-muted)]">
+          Target {formatINR(effectiveNetSalesTarget)} · Steady-state P&L net sales{" "}
+          {formatINR(analysis.netSalesPlan.steadyStatePlNetSales)} · Implied occupancy{" "}
+          {formatPercent(analysis.netSalesPlan.solution.delivery.impliedOccupancyPct)} (
+          {CAPACITY_LABEL[analysis.netSalesPlan.solution.delivery.capacityStatus]})
+        </p>
+      </section>
+
       <div className="mb-4 grid gap-4 lg:grid-cols-[1fr,minmax(240px,280px)]">
         <section className="card-surface border-2 border-[var(--border-subtle)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -433,6 +533,11 @@ export default function SalesTargetPage() {
                 label="Load current forecast"
                 tooltip={LOAD_FORECAST_TOOLTIP}
                 onClick={loadForecast}
+              />
+              <TooltipButton
+                label="From revenue target"
+                tooltip={USE_NET_SALES_PLAN_TOOLTIP}
+                onClick={applyNetSalesPlan}
               />
               <TooltipButton
                 label="Suggest from service mix"

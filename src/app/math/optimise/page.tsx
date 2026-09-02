@@ -202,7 +202,8 @@ export default function OptimisePage() {
           <div>
             <p className="text-h2">Lever preferences</p>
             <p className="text-body-sm mt-1 text-[var(--text-secondary)]">
-              Click any lever to cycle: Open → Prefer not → Locked
+              Tell OWNED what you are willing to change — occupancy, pricing, class schedule, and
+              more. Click any button to cycle: Open → Prefer not → Locked.
             </p>
           </div>
           {isRecalculating && (
@@ -255,6 +256,11 @@ export default function OptimisePage() {
         <Explainer
           trigger="What do these states mean?"
           sections={[
+            {
+              title: "In short",
+              content:
+                "Each button is something OWNED might adjust to help you hit your profit target. Choose how willing you are to change it before you read the recommendations below.",
+            },
             {
               title: "Open",
               content: LEVER_STATUS_HELP.open,
