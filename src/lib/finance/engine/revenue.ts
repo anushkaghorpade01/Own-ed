@@ -17,6 +17,7 @@ import {
   allocateOccupiedBookingsByServiceDemand,
 } from "./service-booking-economics";
 import { allocateSessionsByAccessMix } from "./session-allocation";
+import { calculateCommercialPackSales, type CommercialPackSalesResult } from "./commercial-pack-sales";
 
 import {
   stripGst,
@@ -138,6 +139,12 @@ export interface ProductLevelRevenue {
 
 export interface RevenueResult {
   groupClassRevenue: Decimal;
+  /** Net sales from new pack purchases (expectedSalesVolumePerMonth × price) */
+  commercialPackRevenue: Decimal;
+  /** Drop-in only — pack redemptions are not net sales in purchase-timing model */
+  flexibleDeliveryRevenue: Decimal;
+  packSalesMultiplier: Decimal;
+  commercialPackSales: CommercialPackSalesResult;
   standingSpotRevenue: Decimal;
   privateRevenue: Decimal;
   duoRevenue: Decimal;
@@ -164,8 +171,13 @@ export function createPreOpeningRevenueResult(
   assumptions: FinanceAssumptions
 ): RevenueResult {
   const weighted = calculateWeightedRealisedRevenue(assumptions);
+  const emptyCommercial = calculateCommercialPackSales(assumptions, 0);
   return {
     groupClassRevenue: ZERO,
+    commercialPackRevenue: ZERO,
+    flexibleDeliveryRevenue: ZERO,
+    packSalesMultiplier: emptyCommercial.multiplier,
+    commercialPackSales: emptyCommercial,
     standingSpotRevenue: ZERO,
     privateRevenue: ZERO,
     duoRevenue: ZERO,
@@ -186,11 +198,20 @@ export function createPreOpeningRevenueResult(
   };
 }
 
+export interface CalculateRevenueOptions {
+  /** Booked occupancy % of capacity for ramp pack sales multiplier (defaults to target) */
+  bookedOccupancyPct?: number;
+}
+
 export function calculateRevenue(
   assumptions: FinanceAssumptions,
-  occupiedSeatsMonthly: Decimal
+  occupiedSeatsMonthly: Decimal,
+  options?: CalculateRevenueOptions
 ): RevenueResult {
   const safe = syncPrivateAssumptionsFromProduct(assumptions);
+  const bookedOccupancyPct =
+    options?.bookedOccupancyPct ?? safe.projectedBookedOccupancyPct;
+  const commercialPackSales = calculateCommercialPackSales(safe, bookedOccupancyPct);
   const weighted = calculateWeightedRealisedRevenue(safe);
   const economics = calculateServiceBookingEconomics(safe);
   const economicsById = new Map(economics.rows.map((r) => [r.product.id, r]));
@@ -217,14 +238,16 @@ export function calculateRevenue(
     ? getActiveProducts(safe).filter((p) => p.type === "standing_spot")
     : [];
 
-  const groupClassRevenue = sum(
-    productLevel
-      .filter((p) => p.productType === "credit_pack" || p.productType === "drop_in")
-      .map((p) => p.netRevenue)
-  );
   const dropInRevenue = sum(
     productLevel.filter((p) => p.productType === "drop_in").map((p) => p.netRevenue)
   );
+
+  const groupClassRevenue = sum([
+    dropInRevenue,
+    commercialPackSales.totalNetRevenue,
+  ]);
+  const flexibleDeliveryRevenue = dropInRevenue;
+  const commercialPackRevenue = commercialPackSales.totalNetRevenue;
   const privateRevenue = sum(
     productLevel.filter((p) => p.productType === "private").map((p) => p.netRevenue)
   );
@@ -305,6 +328,10 @@ export function calculateRevenue(
 
   return {
     groupClassRevenue,
+    commercialPackRevenue,
+    flexibleDeliveryRevenue,
+    packSalesMultiplier: commercialPackSales.multiplier,
+    commercialPackSales,
     standingSpotRevenue,
     privateRevenue,
     duoRevenue,
@@ -322,17 +349,23 @@ export function calculateRevenue(
     sessionAllocation: allocation,
     productLevel,
     traces: {
+      commercialPacks: commercialPackSales.trace,
       groupClass: trace(
-        "Group / flexible net sales",
-        "Σ (service booking mix × occupied bookings × net sales per booking)",
+        "Group class net sales",
+        "Drop-in delivery (mix × occupied) + commercial pack purchases (not redemption)",
         "INR/month",
-        productLevel
-          .filter((p) => p.productType === "credit_pack" || p.productType === "drop_in")
-          .map((p) => ({
-            label: p.productName,
-            expression: `${p.sessions.toFixed(1)} occupied bookings`,
-            result: p.netRevenue,
-          })),
+        [
+          {
+            label: "Drop-in (occupied mix)",
+            expression: "drop-in mix × occupied bookings",
+            result: dropInRevenue,
+          },
+          {
+            label: "Commercial pack sales",
+            expression: `Σ packs sold × net price (×${commercialPackSales.multiplier.toFixed(2)} ramp)`,
+            result: commercialPackRevenue,
+          },
+        ],
         groupClassRevenue
       ),
       private: trace(

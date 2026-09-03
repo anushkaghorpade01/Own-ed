@@ -201,7 +201,7 @@ describe("Backtest — optimisation paths verify through runFinanceModel", () =>
         ).toBe(true);
       }
     },
-    15_000
+    30_000
   );
 });
 

@@ -287,15 +287,14 @@ function applyOccupancy(
   occupancyPct: number
 ): FinanceAssumptions {
   const occ = Math.min(100, Math.max(0, occupancyPct));
+  const attended =
+    assumptions.attendedOccupancyMode === "linked"
+      ? occ * (1 - assumptions.cancellationRatePct / 100) * (1 - assumptions.noShowRatePct / 100)
+      : Math.min(occ, assumptions.projectedAttendedOccupancyPct);
   return {
     ...assumptions,
     projectedBookedOccupancyPct: occ,
-    projectedAttendedOccupancyPct: Math.min(
-      occ,
-      assumptions.projectedAttendedOccupancyPct > occ
-        ? occ
-        : assumptions.projectedAttendedOccupancyPct
-    ),
+    projectedAttendedOccupancyPct: Math.min(occ, attended),
   };
 }
 

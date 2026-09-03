@@ -36,6 +36,7 @@ import {
   CREDIT_LIABILITY_FIELDS,
 } from "@/lib/finance/assumption-fields";
 import { OCCUPANCY_FIELD_TOOLTIPS } from "@/lib/finance/occupancy-tooltips";
+import { bookedToAttendedYield } from "@/lib/finance/engine/attended-occupancy";
 import { format } from "date-fns";
 import type { CustomExpense } from "@/lib/finance/schemas";
 import { AnnualEscalationSection } from "@/components/finance/annual-escalation-section";
@@ -94,7 +95,11 @@ const OCCUPANCY_KEYS = [
   "projectedAttendedOccupancyPct",
   "peakOccupancyPct",
   "offPeakOccupancyPct",
+  "cancellationRatePct",
+  "noShowRatePct",
 ] as const;
+
+const PACK_PRESALE_KEYS = ["rampPackSalesMultiplierCap"] as const;
 
 const RAMP_KEYS = [
   "rampUpStartingOccupancyPct",
@@ -111,7 +116,8 @@ function fieldLabels(fields: Array<{ label: string }>): string[] {
 const SEARCH_INDEX = [
   { title: "General", keywords: ["GST", "GST registered", "pricing convention"] },
   { title: "Studio", keywords: ["Reformers", "Max group class size", "Operating days/week", "Classes per day", "Weeks closed/year"] },
-  { title: "Occupancy / Demand", keywords: ["Booked occupancy", "Attended occupancy", "Peak occupancy", "Off-peak occupancy"] },
+  { title: "Occupancy / Demand", keywords: ["Booked occupancy", "Attended occupancy", "Peak occupancy", "Off-peak occupancy", "cancellation", "no-show"] },
+  { title: "Pack pre-sales (ramp)", keywords: ["pack pre-sale", "aggressive pre-sale", "ramp pack", "expected sales volume"] },
   { title: "Fixed operating expenses", keywords: [...fieldLabels(FIXED_FIELDS), "owner compensation", "custom fixed"] },
   { title: "Variable expenses", keywords: [...fieldLabels(VARIABLE_FIELDS), "custom variable"] },
   { title: "Launch timeline", keywords: ["pre-opening", "fit-out", "interiors", "lease", "before open", "rent before revenue"] },
@@ -275,13 +281,29 @@ export default function AssumptionsPage() {
           title="Occupancy / Demand"
           searchKeywords={SEARCH_INDEX.find((s) => s.title === "Occupancy / Demand")!.keywords}
           {...sectionSearch}
-          committed={pickNumericFields(a, [...OCCUPANCY_KEYS])}
-          onSave={(draft) =>
+          committed={{
+            ...pickNumericFields(a, [...OCCUPANCY_KEYS]),
+            attendedOccupancyMode: a.attendedOccupancyMode ?? "linked",
+          }}
+          onSave={(draft) => {
+            const linked = draft.attendedOccupancyMode !== "manual";
+            const attended = linked
+              ? Math.min(
+                  draft.projectedBookedOccupancyPct,
+                  draft.projectedBookedOccupancyPct *
+                    (1 - draft.cancellationRatePct / 100) *
+                    (1 - draft.noShowRatePct / 100)
+                )
+              : Math.min(
+                  draft.projectedBookedOccupancyPct,
+                  draft.projectedAttendedOccupancyPct
+                );
             updateAssumptions({
               ...draft,
+              projectedAttendedOccupancyPct: attended,
               rampUpTargetOccupancyPct: draft.projectedBookedOccupancyPct,
-            })
-          }
+            });
+          }}
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <DraftNumberField
@@ -292,9 +314,21 @@ export default function AssumptionsPage() {
             />
             <DraftNumberField
               field="projectedAttendedOccupancyPct"
-              label="Attended occupancy"
+              label="Attended occupancy (target)"
               suffix="%"
               tooltip={OCCUPANCY_FIELD_TOOLTIPS.attended}
+            />
+            <DraftNumberField
+              field="cancellationRatePct"
+              label="Cancellation rate"
+              suffix="%"
+              help="Used when attended follows booked"
+            />
+            <DraftNumberField
+              field="noShowRatePct"
+              label="No-show rate"
+              suffix="%"
+              help="Used when attended follows booked"
             />
             <DraftNumberField
               field="peakOccupancyPct"
@@ -304,6 +338,7 @@ export default function AssumptionsPage() {
             />
             <DraftNumberField field="offPeakOccupancyPct" label="Off-peak occupancy" suffix="%" />
           </div>
+          <AttendedOccupancyMode />
         </AssumptionSection>
 
         <AssumptionSection
@@ -471,6 +506,35 @@ export default function AssumptionsPage() {
               help="Ramp endpoint — kept in sync with booked occupancy"
             />
             <DraftNumberField field="rampUpMonthsToTarget" label="Months to target" integer />
+          </div>
+        </AssumptionSection>
+
+        <AssumptionSection
+          title="Pack pre-sales (ramp)"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Pack pre-sales (ramp)")!.keywords}
+          {...sectionSearch}
+          committed={{
+            ...pickNumericFields(a, [...PACK_PRESALE_KEYS]),
+            rampPackSalesMode: a.rampPackSalesMode ?? "aggressive_presale",
+          }}
+          onSave={(draft) => updateAssumptions(draft)}
+        >
+          <p className="mb-4 text-xs text-[#6B6560]">
+            P&amp;L and cash count pack revenue at purchase (Access Products → expected monthly
+            pack sales). During ramp, aggressive pre-sale scales pack volume up when booked
+            occupancy is below target — matching a push to sell packs while the studio is still
+            filling. Per-pack volumes are edited under Access Products.
+          </p>
+          <PackPresaleMode />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DraftNumberField
+              field="rampPackSalesMultiplierCap"
+              label="Pre-sale multiplier cap"
+              integer
+              min={1}
+              max={10}
+              help="Max × boost when below target occupancy (e.g. 3 = up to 3× steady pack volume)"
+            />
           </div>
         </AssumptionSection>
 
@@ -722,6 +786,102 @@ export default function AssumptionsPage() {
           </div>
         </AssumptionSection>
       </div>
+    </div>
+  );
+}
+
+type OccupancyDraft = {
+  projectedBookedOccupancyPct: number;
+  projectedAttendedOccupancyPct: number;
+  cancellationRatePct: number;
+  noShowRatePct: number;
+  attendedOccupancyMode: "linked" | "manual";
+};
+
+function AttendedOccupancyMode() {
+  const { draft, patch } = useSectionContext<OccupancyDraft>();
+  const linked = draft.attendedOccupancyMode !== "manual";
+  const implied = Math.min(
+    draft.projectedBookedOccupancyPct,
+    draft.projectedBookedOccupancyPct * bookedToAttendedYield(draft as OccupancyDraft & { attendedOccupancyMode: "linked" })
+  );
+
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-medium text-[#6B6560]">Attended occupancy</p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={linked ? "default" : "outline"}
+          onClick={() =>
+            patch({
+              attendedOccupancyMode: "linked",
+              projectedAttendedOccupancyPct: implied,
+            })
+          }
+        >
+          Follows booked (cancel / no-show)
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={!linked ? "default" : "outline"}
+          onClick={() => patch({ attendedOccupancyMode: "manual" })}
+        >
+          Manual override
+        </Button>
+      </div>
+      {linked ? (
+        <p className="mt-2 text-xs text-[#A39E98]">
+          At {draft.projectedBookedOccupancyPct}% booked → ~{implied.toFixed(1)}% attended
+          (scales the same way during ramp months). Delivery costs use attended; revenue uses
+          booked.
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-[#A39E98]">
+          Attended is capped at booked occupancy. Must not exceed booked seats.
+        </p>
+      )}
+    </div>
+  );
+}
+
+type PackPresaleDraft = {
+  rampPackSalesMode: "steady" | "aggressive_presale";
+  rampPackSalesMultiplierCap: number;
+};
+
+function PackPresaleMode() {
+  const { draft, patch } = useSectionContext<PackPresaleDraft>();
+  const modes: Array<{ id: PackPresaleDraft["rampPackSalesMode"]; label: string }> = [
+    { id: "aggressive_presale", label: "Aggressive pre-sale below target" },
+    { id: "steady", label: "Steady pack volume every month" },
+  ];
+
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium text-[#6B6560]">Ramp pack sales</p>
+      <div className="flex flex-wrap gap-2">
+        {modes.map(({ id, label }) => (
+          <Button
+            key={id}
+            type="button"
+            size="sm"
+            variant={draft.rampPackSalesMode === id ? "default" : "outline"}
+            onClick={() => patch({ rampPackSalesMode: id })}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      {draft.rampPackSalesMode === "aggressive_presale" ? (
+        <p className="mt-2 text-xs text-[#A39E98]">
+          When booked occupancy is below target, pack sales scale up (target ÷ current, capped) so
+          you can model selling more packs while the studio is quiet. Credit Health warns if new
+          credits exceed open capacity.
+        </p>
+      ) : null}
     </div>
   );
 }

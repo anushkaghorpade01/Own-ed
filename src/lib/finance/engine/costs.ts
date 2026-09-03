@@ -178,7 +178,6 @@ export function calculateOperatingExpenses(
     d(assumptions.water),
     d(assumptions.cleaningSupplies),
     d(assumptions.refreshments),
-    d(assumptions.customerAcquisitionSpend),
     d(assumptions.repairsReserve),
     d(assumptions.miscVariableCosts),
     customFixed,

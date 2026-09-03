@@ -1,6 +1,7 @@
 import { d, WEEKS_PER_MONTH, trace, type CalculationTrace } from "../decimal";
 import type { FinanceAssumptions, ClassScheduleEntry } from "../schemas";
 import Decimal from "decimal.js";
+import { resolveAttendedOccupancyPct } from "./attended-occupancy";
 
 export interface CapacityResult {
   weeklyAvailableSeats: Decimal;
@@ -135,7 +136,12 @@ export function calculateCapacity(
 
   const occupancyPct =
     occupancyOverride ?? d(assumptions.projectedBookedOccupancyPct).dividedBy(100);
-  const attendedPct = d(assumptions.projectedAttendedOccupancyPct).dividedBy(100);
+  const bookedOccupancyPct = occupancyPct.times(100).toNumber();
+  const attendedOccupancyPct = resolveAttendedOccupancyPct(
+    assumptions,
+    bookedOccupancyPct
+  );
+  const attendedPct = d(attendedOccupancyPct).dividedBy(100);
 
   const occupiedSeatsMonthly = monthlyAvailableSeats.times(occupancyPct);
   const attendedSeatsMonthly = monthlyAvailableSeats.times(attendedPct);
@@ -200,12 +206,13 @@ function slotFromEntry(
   entry: ClassScheduleEntry,
   assumptions: FinanceAssumptions
 ): SlotCapacityEntry {
-  const bookedPct = d(
-    entry.bookedOccupancyPct ?? assumptions.projectedBookedOccupancyPct
-  ).dividedBy(100);
-  const attendedPct = d(
-    entry.attendedOccupancyPct ?? assumptions.projectedAttendedOccupancyPct
-  ).dividedBy(100);
+  const bookedOccupancyPct =
+    entry.bookedOccupancyPct ?? assumptions.projectedBookedOccupancyPct;
+  const bookedPct = d(bookedOccupancyPct).dividedBy(100);
+  const attendedOccupancyPct =
+    entry.attendedOccupancyPct ??
+    resolveAttendedOccupancyPct(assumptions, bookedOccupancyPct);
+  const attendedPct = d(attendedOccupancyPct).dividedBy(100);
   const monthlySlots = WEEKS_PER_MONTH;
   const available = d(entry.capacity).times(monthlySlots);
   const booked = available.times(bookedPct);

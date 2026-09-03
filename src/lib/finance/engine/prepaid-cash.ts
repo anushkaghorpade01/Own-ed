@@ -4,9 +4,13 @@
 import Decimal from "decimal.js";
 import { d, sum, trace, type CalculationTrace } from "../decimal";
 import type { FinanceAssumptions } from "../schemas";
-import { listFlexiblePacks, analyzeFlexiblePack } from "./flexible-packs";
+import {
+  buildCommercialPackSalesVolumes,
+  calculateCommercialPackSales,
+} from "./commercial-pack-sales";
 import { productGrossPrice, productNetPrice } from "./product-pricing";
 import { getActiveProducts } from "./product-catalog";
+import { listFlexiblePacks } from "./flexible-packs";
 
 export interface PrepaidCashRow {
   productId: string;
@@ -21,30 +25,26 @@ export interface PrepaidCashResult {
   grossCashCollected: Decimal;
   netCashCollected: Decimal;
   totalDeferredUnearned: Decimal;
+  packSalesMultiplier: Decimal;
   rows: PrepaidCashRow[];
   trace: CalculationTrace;
 }
 
-export function calculatePrepaidPackCash(assumptions: FinanceAssumptions): PrepaidCashResult {
-  const rows: PrepaidCashRow[] = [];
-
-  for (const product of listFlexiblePacks(assumptions)) {
-    const rules = product.packRules;
-    const packsSold = d(Math.max(0, rules?.expectedSalesVolumePerMonth ?? 0));
-    const gross = productGrossPrice(product, assumptions).times(packsSold);
-    const net = productNetPrice(product, assumptions).times(packsSold);
-    const econ = analyzeFlexiblePack(product, assumptions);
-    const deferred = new Decimal(0);
-
-    rows.push({
-      productId: product.id,
-      productName: product.name,
-      packsSold,
-      grossCashCollected: gross,
-      netCashCollected: net,
-      netDeferredUnearned: deferred,
-    });
-  }
+export function calculatePrepaidPackCash(
+  assumptions: FinanceAssumptions,
+  bookedOccupancyPct?: number
+): PrepaidCashResult {
+  const booked =
+    bookedOccupancyPct ?? assumptions.projectedBookedOccupancyPct;
+  const commercial = calculateCommercialPackSales(assumptions, booked);
+  const rows: PrepaidCashRow[] = commercial.rows.map((row) => ({
+    productId: row.productId,
+    productName: row.productName,
+    packsSold: row.packsSold,
+    grossCashCollected: row.grossCashCollected,
+    netCashCollected: row.netRevenue,
+    netDeferredUnearned: new Decimal(0),
+  }));
 
   for (const product of getActiveProducts(assumptions).filter((p) => p.type === "standing_spot")) {
     const gross = productGrossPrice(product, assumptions);
@@ -63,14 +63,21 @@ export function calculatePrepaidPackCash(assumptions: FinanceAssumptions): Prepa
   const netCashCollected = sum(rows.map((r) => r.netCashCollected));
   const totalDeferredUnearned = sum(rows.map((r) => r.netDeferredUnearned));
 
+  const modeNote =
+    assumptions.rampPackSalesMode === "aggressive_presale" &&
+    commercial.multiplier.gt(1)
+      ? ` ×${commercial.multiplier.toFixed(2)} aggressive pre-sale below target occupancy`
+      : "";
+
   return {
     grossCashCollected,
     netCashCollected,
     totalDeferredUnearned,
+    packSalesMultiplier: commercial.multiplier,
     rows,
     trace: trace(
       "Prepaid pack cash collected",
-      "Σ (packs sold × gross package price) at purchase timing — not earned revenue",
+      `Σ (packs sold × gross package price) at purchase timing${modeNote}`,
       "INR/month",
       rows.map((r) => ({
         label: r.productName,
@@ -85,12 +92,21 @@ export function calculatePrepaidPackCash(assumptions: FinanceAssumptions): Prepa
 /** Monthly operating cash inflows: prepaid purchases + ancillary earned-timing gross */
 export function calculateOperatingCashInflows(
   assumptions: FinanceAssumptions,
-  earnedGrossBillings: Decimal
+  earnedGrossBillings: Decimal,
+  bookedOccupancyPct?: number
 ): { grossInflows: Decimal; prepaid: PrepaidCashResult } {
-  const prepaid = calculatePrepaidPackCash(assumptions);
+  const prepaid = calculatePrepaidPackCash(assumptions, bookedOccupancyPct);
   const flexStandingGross = prepaid.grossCashCollected;
   const ancillary = Decimal.max(0, earnedGrossBillings.minus(flexStandingGross));
   const grossInflows = flexStandingGross.plus(ancillary);
 
   return { grossInflows, prepaid };
+}
+
+/** @deprecated use calculateCommercialPackSales volumes */
+export function getPackSalesVolumesForMonth(
+  assumptions: FinanceAssumptions,
+  bookedOccupancyPct: number
+): Record<string, number> {
+  return buildCommercialPackSalesVolumes(assumptions, bookedOccupancyPct).volumesByProductId;
 }

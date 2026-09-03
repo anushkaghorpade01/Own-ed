@@ -9,6 +9,7 @@ import {
   syncFlexiblePackageMixFromServiceDemand,
   ensureBaseCaseMixProducts,
 } from "./engine/service-demand-mix";
+import { resolveSteadyStateAttendedPct } from "./engine/attended-occupancy";
 
 export interface ValidationError {
   field: string;
@@ -101,8 +102,15 @@ export function normalizeAssumptions(
   const parsed = FinanceAssumptionsSchema.safeParse(merged);
   const normalized = parsed.success ? parsed.data : base;
   const withMix = migratePricingSemantics(ensureBaseCaseMixProducts(normalized));
+  const syncedAttended =
+    withMix.attendedOccupancyMode === "linked"
+      ? {
+          ...withMix,
+          projectedAttendedOccupancyPct: resolveSteadyStateAttendedPct(withMix),
+        }
+      : withMix;
   return {
-    ...withMix,
+    ...syncedAttended,
     instructorPerClassPayout: 0,
     instructorPerAttendeePayout: 0,
   };

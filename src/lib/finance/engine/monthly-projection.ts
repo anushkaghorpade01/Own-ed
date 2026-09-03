@@ -71,7 +71,9 @@ export function computeMonthSnapshot(
   const occupancy = getRampUpOccupancy(baseAssumptions, month);
   const capacity = calculateCapacity(monthAssumptions, occupancy);
   const classesPerMonth = capacity.weeklyClasses.times(WEEKS_PER_MONTH);
-  const revenue = calculateRevenue(monthAssumptions, capacity.occupiedSeatsMonthly);
+  const revenue = calculateRevenue(monthAssumptions, capacity.occupiedSeatsMonthly, {
+    bookedOccupancyPct: occupancy.times(100).toNumber(),
+  });
   const directCosts = calculateDirectCosts(
     monthAssumptions,
     capacity.attendedSeatsMonthly,

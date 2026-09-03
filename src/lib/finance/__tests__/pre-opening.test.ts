@@ -15,6 +15,16 @@ function clone() {
   return structuredClone(createSampleAssumptions());
 }
 
+function cloneWithoutPackPresales() {
+  const a = structuredClone(createSampleAssumptions());
+  for (const p of a.products) {
+    if (p.type === "credit_pack" && p.packRules) {
+      p.packRules.expectedSalesVolumePerMonth = 0;
+    }
+  }
+  return a;
+}
+
 describe("Pre-opening launch timeline", () => {
   it("with zero pre-opening months matches legacy capex timing (all month 1)", () => {
     const a = clone();
@@ -91,10 +101,16 @@ describe("Pre-opening launch timeline", () => {
   });
 
   it("pre-opening months deepen early bank cash trough", () => {
-    const legacy = clone();
-    legacy.preOpeningMonths = 0;
-    const preOpen = clone();
-    preOpen.preOpeningMonths = 2;
+    const legacy = {
+      ...cloneWithoutPackPresales(),
+      preOpeningMonths: 0,
+      rampPackSalesMode: "steady" as const,
+    };
+    const preOpen = {
+      ...cloneWithoutPackPresales(),
+      preOpeningMonths: 2,
+      rampPackSalesMode: "steady" as const,
+    };
 
     const legacyHealth = runFinanceModel(legacy).cashFlow.cashHealth;
     const preHealth = runFinanceModel(preOpen).cashFlow.cashHealth;

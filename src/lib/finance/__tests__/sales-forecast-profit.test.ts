@@ -70,7 +70,10 @@ describe("Month X forecast profit (Sales & Client Target)", () => {
   });
 
   it("steady-state P&L uses target booked occupancy, not ramp month", () => {
-    const assumptions = clone();
+    const assumptions = {
+      ...clone(),
+      rampPackSalesMode: "steady" as const,
+    };
     const model = runFinanceModel(assumptions);
     const month8 = getMonthForecastProfit(assumptions, 8);
 

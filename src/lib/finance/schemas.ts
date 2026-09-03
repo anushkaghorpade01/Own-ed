@@ -505,6 +505,17 @@ export const FinanceAssumptionsSchema = z.object({
   /** Minimal = rent + CAM + base utilities; full = all operating expenses */
   preOpeningOpexMode: z.enum(["minimal", "full"]).default("minimal"),
 
+  /** Linked: attended follows booked via cancel/no-show; manual: user-set attended % */
+  attendedOccupancyMode: z.enum(["linked", "manual"]).default("linked"),
+
+  /**
+   * steady — fixed expectedSalesVolumePerMonth every month.
+   * aggressive_presale — scale pack sales up when booked occupancy is below target.
+   */
+  rampPackSalesMode: z.enum(["steady", "aggressive_presale"]).default("aggressive_presale"),
+  /** Cap for target/current occupancy ratio when aggressive pre-sale is active */
+  rampPackSalesMultiplierCap: z.number().min(1).max(10).default(3),
+
   // Credit liability
   creditsSoldOutstanding: z.number().int().min(0).default(0),
   creditsExpectedRedemptionBeforeExpiry: z.number().int().min(0).default(0),

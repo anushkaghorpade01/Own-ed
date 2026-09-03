@@ -74,9 +74,36 @@ runFinanceModel(assumptions) → capacity, revenue, directCosts, operatingExpens
 
 **Booked vs attended occupancy**
 
-- **Booked occupancy** → drives **revenue** (spots reserved / expected sales).
+- **Booked occupancy** → drives **revenue** (spots reserved / expected sales) and scales during ramp.
 - **Attended occupancy** → drives **variable direct costs** (consumables, per-attendee instructor).
-- Formula: `attendedSeats = monthlyAvailableSeats × attendedOccupancyPct`.
+- **Default: linked mode** (`attendedOccupancyMode = "linked"`):
+  ```
+  attendedYield = (1 − cancellationRatePct/100) × (1 − noShowRatePct/100)
+  attendedOccupancyPct = min(bookedOccupancyPct, bookedOccupancyPct × attendedYield)
+  attendedSeatsMonthly = monthlyAvailableSeats × (attendedOccupancyPct / 100)
+  ```
+- During ramp, attended **tracks booked** through the same yield — not a fixed gap vs target.
+- **Manual mode:** uses stored `projectedAttendedOccupancyPct`, still capped at booked.
+- Sample at 60% booked, 5% cancel, 3% no-show → ~55.3% attended (215.6 seats on 390 capacity).
+
+**Commercial pack revenue vs delivery mix (purchase-timing model)**
+
+- **P&L pack revenue** = `expectedSalesVolumePerMonth × net pack price` per product (`commercialPackSales`), **not** mix-based pack redemption revenue.
+- **Drop-in revenue** still comes from occupied bookings × service demand mix.
+- **Private revenue** comes from **service demand mix only** (`occupiedBookings × private net price`). `privateSessionsPerMonth` is legacy/sync — do not double-count.
+- Service demand mix still drives **capacity allocation**, **credit liability**, and **weighted unit economics** — but pack **net sales** on P&L follow commercial volume fields.
+
+**Aggressive pre-sale during ramp (valid strategy, not a bug)**
+
+- Default sample: `rampPackSalesMode = "aggressive_presale"`.
+- When current booked occupancy is **below** target, pack sales **increase** (not decrease):
+  ```
+  multiplier = min(rampPackSalesMultiplierCap, max(1, targetBookedPct / max(currentBookedPct, 0.5)))
+  packsSold = expectedSalesVolumePerMonth × multiplier
+  ```
+- Applies to **P&L** (monthly projection) and **cash** (prepaid pack purchase inflows).
+- `rampPackSalesMode = "steady"` → multiplier always 1 (use for mature-month comparisons).
+- Credit health surfaces `presaleWarning` when multiplier > 1 or when new credits sold exceed uncommitted delivery capacity.
 
 **Prepaid pack revenue (founder planning model)**
 
@@ -124,13 +151,15 @@ Computed from `createSampleAssumptions()` + `runFinanceModel()` as of model in r
 
 | Metric | Value (INR) |
 |--------|-------------|
-| Net revenue | 473,948 |
-| Direct costs | 17,620 |
-| Gross profit | 456,327 |
-| Operating expenses | 281,500 |
-| EBITDA | 174,827 |
+| Net revenue | 406,043 |
+| Direct costs | 16,052 |
+| Gross profit | 389,991 |
+| Operating expenses | 266,500 |
+| EBITDA | 123,491 |
 | Depreciation | 4,762 |
-| **Net profit** | **127,549** |
+| **Net profit** | **89,047** |
+
+*Steady-state uses commercial pack volumes at target occupancy (multiplier = 1). Mix-weighted pack redemption is no longer counted as net sales.*
 
 ### 3.2 Capacity (sample)
 
@@ -139,7 +168,7 @@ Computed from `createSampleAssumptions()` + `runFinanceModel()` as of model in r
 | Weekly available seats | 90 (= 3 reformers × 5 classes/day × 6 days) |
 | Monthly available seats | 390 (= weekly × 52/12) |
 | Occupied seats (60% booked) | 234 |
-| Attended seats (55% attended) | 214.5 |
+| Attended seats (linked ~55.3% attended) | 215.6 |
 
 ### 3.3 Weighted unit economics
 
@@ -149,7 +178,7 @@ Computed from `createSampleAssumptions()` + `runFinanceModel()` as of model in r
 | Blended net / occupied spot (incl. private) | 1,825 |
 | Contribution margin / seat | 1,758 |
 | Contribution break-even occupancy | 30.0% |
-| EBITDA break-even occupancy | 41.1% |
+| EBITDA break-even occupancy | 38.9% |
 
 ### 3.4 Per-product net per credit/session (list prices)
 
@@ -171,11 +200,11 @@ Computed from `createSampleAssumptions()` + `runFinanceModel()` as of model in r
 | Total cash required at launch | 2,835,000 |
 | Founder equity | 3,250,000 |
 | Opening bank cash after month-1 payments | 2,550,000 |
-| Lowest bank cash (month 4) | 555,533 |
+| Lowest bank cash (month 4) | 1,879,754 |
 | Payback month (cumulative operating cash) | 26 |
 | Pre-opening months | 2 (classes start month 3) |
-| Month 8 forecast profit | 42,280 |
-| Month 3 forecast profit (first operating month) | -38,370 |
+| Month 8 forecast profit | 103,559 |
+| Month 3 forecast profit (first operating month) | 156,610 |
 
 ---
 
@@ -200,11 +229,19 @@ useScheduleForCapacity = false
 
 ```
 projectedBookedOccupancyPct = 60      # target / revenue driver
-projectedAttendedOccupancyPct = 55    # delivery cost driver
+attendedOccupancyMode = "linked"      # "linked" | "manual" — default linked
+projectedAttendedOccupancyPct = 55    # auto-synced when linked; manual override when not
 peakOccupancyPct = 75
 offPeakOccupancyPct = 45
 cancellationRatePct = 5
 noShowRatePct = 3
+```
+
+### 4.2b Pack pre-sales (ramp)
+
+```
+rampPackSalesMode = "aggressive_presale"   # "steady" | "aggressive_presale"
+rampPackSalesMultiplierCap = 3             # max boost when below target occupancy
 ```
 
 ### 4.3 Service demand mix (% of occupied bookings — must sum to 100)
@@ -219,11 +256,13 @@ private:     serviceDemandPct = 15
 ### 4.4 Product prices (net ex-GST)
 
 ```
-drop-in:     price = 1695,  credits = 1
-8-pack:      price = 11525, credits = 8,  validity = 8 weeks
-16-pack:     price = 21695, credits = 16, validity = 12 weeks
+drop-in:     price = 1695,  credits = 1,  expectedSalesVolumePerMonth = 0
+8-pack:      price = 11525, credits = 8,  validity = 8 weeks,  expectedSalesVolumePerMonth = 8
+16-pack:     price = 21695, credits = 16, validity = 12 weeks, expectedSalesVolumePerMonth = 4
 private:     price = 4000,  duration = 55 min
 ```
+
+`expectedSalesVolumePerMonth` drives **commercial pack P&L and cash** (purchase timing). Service demand mix drives **occupied booking allocation** and credit health — keep both consistent with your sales story.
 
 Pack rules (sample): redemption ~88–90%, breakage ~10–12%, no-show 3%, cancellation 5%.
 
@@ -354,10 +393,14 @@ usableOperatingWeeksPerYear = 52 − weeksClosedPerYear
 annualAvailableSeats = weeklyAvailableSeats × usableOperatingWeeksPerYear
 
 occupiedSeatsMonthly = monthlyAvailableSeats × (projectedBookedOccupancyPct / 100)
-attendedSeatsMonthly = monthlyAvailableSeats × (projectedAttendedOccupancyPct / 100)
+
+# Linked attended (default) — scales with ramp booked occupancy
+attendedYield = (1 − cancellationRatePct/100) × (1 − noShowRatePct/100)
+attendedOccupancyPct = min(bookedOccupancyPct, bookedOccupancyPct × attendedYield)
+attendedSeatsMonthly = monthlyAvailableSeats × (attendedOccupancyPct / 100)
 ```
 
-**Sample check:** 3×5×6 = 90 weekly; 90×52/12 = 390 monthly; ×60% = 234 occupied.
+**Sample check:** 3×5×6 = 90 weekly; 90×52/12 = 390 monthly; ×60% = 234 occupied; linked attended ≈ 215.6.
 
 Schedule mode: if `useScheduleForCapacity` and schedule entries exist, sum scheduled class capacities instead.
 
@@ -365,7 +408,14 @@ Schedule mode: if `useScheduleForCapacity` and schedule entries exist, sum sched
 
 ## 6. Revenue calculator
 
-**Module:** `engine/revenue.ts`, `service-booking-economics.ts`, `product-pricing.ts`
+**Module:** `engine/revenue.ts`, `engine/commercial-pack-sales.ts`, `service-booking-economics.ts`, `product-pricing.ts`
+
+### Two revenue layers (do not conflate)
+
+| Layer | Source | Used for |
+|-------|--------|----------|
+| **Commercial pack sales** | `expectedSalesVolumePerMonth × price` (+ ramp multiplier) | P&L net sales, prepaid cash |
+| **Delivery / mix allocation** | `occupiedSeats × serviceDemandPct` | Drop-in revenue, private from mix, credit liability, weighted economics |
 
 ### Product net price
 
@@ -388,9 +438,21 @@ Mix percentages must sum to 100%.
 ### Group class revenue
 
 ```
-netSalesPerOccupiedBooking = net per credit (pack/drop-in) OR private net price
-groupClassRevenue = Σ (occupiedBookings × netSalesPerOccupiedBooking)  [flexible products]
-privateRevenue = from private sessions in mix + privateSessionsPerMonth path
+commercialPackRevenue = Σ (packsSold × netPackPrice)     # purchase timing
+dropInRevenue = dropInOccupiedBookings × dropInNetPrice  # from mix
+groupClassRevenue = commercialPackRevenue + dropInRevenue
+privateRevenue = privateOccupiedBookings × privateNetPrice   # mix only — not privateSessionsPerMonth
+```
+
+### Ramp pack sales multiplier
+
+```
+If rampPackSalesMode = "aggressive_presale" and currentBooked < targetBooked:
+  multiplier = min(cap, max(1, targetBooked / max(currentBooked, 0.5)))
+Else:
+  multiplier = 1
+
+packsSold_product = expectedSalesVolumePerMonth × multiplier
 ```
 
 ### Weighted averages
@@ -416,7 +478,9 @@ gstCollected = netRevenue × gstRatePct/100   [if registered]
 grossCustomerBillings = netRevenue + gstCollected
 ```
 
-**Pre-opening months:** revenue = 0 (`createPreOpeningRevenueResult`).
+**Pre-opening months (P&L):** class revenue = 0 (`createPreOpeningRevenueResult`).
+
+**Pre-opening months (cash):** prepaid pack purchase cash still flows if commercial volumes > 0 — intentional for pre-launch pack sales.
 
 ---
 
@@ -462,8 +526,17 @@ totalOperatingExpenses = rent + CAM + utilities + all salaries + security + inte
                        + laundry + water + supplies + refreshments + CAC + repairs
                        + miscVariable + custom expenses
 
-totalFixedCosts = subset used for contribution break-even (excludes some variable lines)
+totalFixedCosts = rent + CAM + ownerSalary (if included) + additionalInstructorSalary
+                + cleanerSalary + receptionSalary + security + internet
+                + softwareSubscriptions + accounting + insurance + licences
+                + otherFixedCosts + customFixedExpenses
+
+# Excluded from totalFixedCosts (still in totalOperatingExpenses):
+# utilities, marketing (retainer + CAC), laundry, water, cleaningSupplies,
+# refreshments, repairsReserve, miscVariable, customVariableExpenses
 ```
+
+Sample `totalFixedCosts` ≈ ₹204,000; `totalOperatingExpenses` ≈ ₹266,500 at steady state.
 
 ### Pre-opening opex (`preOpeningMonths > 0`)
 
@@ -504,9 +577,10 @@ Monthly projection: repeat per month with `getRampUpOccupancy(month)`, escalatio
 
 ```
 If forecastMonth <= preOpeningMonths:
-  occupancy = 0
-  revenue = 0
+  booked occupancy = 0
+  P&L class revenue = 0
   opex = preOpeningOpex
+  cash inflows may still include prepaid pack purchases (pre-launch sales)
 ```
 
 ### Operating month index
@@ -551,10 +625,14 @@ openingBankCash = founderEquity + loan − cashPaidInMonth1
 ### Operating cash (monthly)
 
 ```
-cashInflows = prepaid pack gross purchases + ancillary earned-timing gross
+cashInflows = prepaid pack gross purchases (× ramp multiplier when active)
+            + ancillary earned-timing gross (private, duo, workshop, other, drop-in — gross minus prepaid flex)
 cashOutflows = operatingExpenses + directCosts + gstCollected (planning convention)
 netOperatingCashFlow = cashInflows − cashOutflows
 ```
+
+Prepaid flex = commercial pack gross + standing spot gross at purchase timing.
+Ancillary = everything else on earned/gross billings layer.
 
 ### Bank cash
 
@@ -770,7 +848,17 @@ Patch rent → opex → EBITDA, cash flow, break-even occupancy (higher)
 
 ```
 Patch preOpeningMonths
-→ zero revenue early months, spread fit-out cash, delay ramp, deepen bank trough
+→ zero P&L class revenue early months, spread fit-out cash, delay ramp
+→ pack pre-sale cash may still improve early bank balance (by design)
+```
+
+### Aggressive pre-sale during ramp
+
+```
+Patch rampPackSalesMode = "aggressive_presale"
+→ below-target booked months boost expectedSalesVolumePerMonth on P&L + cash
+→ Month X forecast profit rises vs steady mode — not a model error
+→ watch credit liability presaleWarning when selling ahead of delivery capacity
 ```
 
 ### “What if private goes to zero?”
@@ -806,6 +894,8 @@ minimumTotalFunding = totalPlannedFunding + fundingGap
 | Full model | `run-model.ts` |
 | Capacity | `engine/capacity.ts` |
 | Revenue | `engine/revenue.ts` |
+| Commercial pack sales | `engine/commercial-pack-sales.ts` |
+| Attended occupancy link | `engine/attended-occupancy.ts` |
 | Service mix | `engine/service-demand-mix.ts`, `service-booking-economics.ts` |
 | Direct & opex costs | `engine/costs.ts` |
 | P&L | `engine/pl.ts` |
@@ -843,7 +933,8 @@ Use this when the user asks "am I missing something?" or "is this realistic?"
 | **Cash vs P&L timing** | Prepaid pack **purchase cash** in operating cash flow; P&L net sales at purchase | Full earned-revenue cash matching; refund/chargeback flows |
 | **Calendar capacity** | `52/12` weeks per month in planning mode | Actual days per calendar month (planned future enhancement) |
 | **Schedule / peak slots** | Optional schedule mode; credit health uses simplified eligible-capacity check | Full booking-engine simulation; member time-preference optimisation |
-| **Credit liability vs occupancy** | Conservative stress test: backlog vs uncommitted spots | Does not fully dedupe "occupied spots already include pack members" vs "backlog must also fit" — treat red/amber as "check peak schedule", not literal headcount shortfall |
+| **Credit liability vs occupancy** | Conservative stress test + **presaleWarning** when pack sales exceed uncommitted spots | Does not fully dedupe "occupied spots already include pack members" vs "backlog must also fit" — treat red/amber as "check peak schedule", not literal headcount shortfall |
+| **Aggressive pre-sale** | Valid ramp strategy — boosts pack P&L/cash below target occupancy | Not demand forecasting — user sets `expectedSalesVolumePerMonth`; multiplier scales it during ramp |
 | **Substitution solver** | Manual formula in Section 15 | No built-in UI for contribution-neutral product swap yet |
 | **Refunds & chargebacks** | Not modelled | — |
 | **Multi-location / franchise** | Single studio | — |
@@ -909,6 +1000,12 @@ Weighted metrics are **mix-weighted** by booking/credit volume, not average cust
 
 Treat as **conservative stress test**. Expected occupied spots may overlap the same members as the credit backlog. Action: verify **peak eligible slots** and pack sales pace — not panic on ratio alone.
 
+### 23.10 "Ramp profit looks too high / pack cash seems wrong"
+
+**Not necessarily a bug.** With `rampPackSalesMode = "aggressive_presale"`, the model **intentionally** sells more packs when booked occupancy is below target — matching a founder strategy of pre-selling during quiet months.
+
+**Check:** `packSalesMultiplier`, `presaleWarning` in credit health, and whether `expectedSalesVolumePerMonth` reflects your actual sales ambition. Use `steady` mode to compare mature-month economics without ramp boost.
+
 ---
 
 ## 24. Decision framework — which metric for which question
@@ -919,7 +1016,8 @@ Treat as **conservative stress test**. Expected occupied spots may overlap the s
 | Will I survive the first year? | **Lowest bank cash**, funding gap, month-by-month cash flow | Pre-opening months, ramp curve |
 | When do I recover setup investment? | **Payback month** (operating cash cumulative) | Payback base composition (deposit in/out?) |
 | Can I cover rent if occupancy dips? | **Contribution break-even occupancy** | EBITDA break-even, fixed cost stack |
-| Am I selling too many packs? | **Credit coverage** (eligible, peak) | Expected redemptions vs uncommitted capacity |
+| Am I selling too many packs? | **Credit coverage** (eligible, peak) + **presaleWarning** | Expected redemptions vs uncommitted capacity; aggressive pre-sale multiplier |
+| Should I pre-sell hard during ramp? | **Month X forecast profit** vs steady mode | Credit liability, peak slot constraints, delivery team capacity |
 | What must I sell to hit ₹X profit in Month 8? | **Sales plan solvers** + Month 8 forecast gap | Feasibility warning on capacity |
 | Should I cut private / add drop-ins? | **Contribution per sale** by product; substitution (Section 15) | Service demand mix impact on forecast |
 | Is rent increase affordable? | Δ **EBITDA**, new break-even occupancy | Cash trough if ramp unchanged |

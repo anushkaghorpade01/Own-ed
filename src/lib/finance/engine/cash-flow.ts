@@ -146,7 +146,8 @@ export function calculateCashFlow(
 
     const { grossInflows: cashInflows } = calculateOperatingCashInflows(
       assumptions,
-      monthResult.revenue.grossCustomerBillings
+      monthResult.revenue.grossCustomerBillings,
+      occupancy.times(100).toNumber()
     );
     const cashOutflows = sum([
       monthResult.operatingExpenses.totalOperatingExpenses,

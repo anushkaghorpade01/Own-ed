@@ -12,9 +12,15 @@ import {
 } from "./credit-ledger";
 import { listFlexiblePacks, analyzeFlexiblePack } from "./flexible-packs";
 import { totalStandingSpotCommittedSeatsMonthly } from "./standing-spots";
+import { calculateCommercialPackSales } from "./commercial-pack-sales";
 
 export interface CreditHealthWarning {
-  code: "peak_capacity_pressure" | "expiry_cliff" | "standing_concentration" | "low_coverage";
+  code:
+    | "peak_capacity_pressure"
+    | "expiry_cliff"
+    | "standing_concentration"
+    | "low_coverage"
+    | "aggressive_presale";
   severity: "info" | "caution" | "pressure";
   title: string;
   message: string;
@@ -93,6 +99,39 @@ export function calculateCreditHealth(
       severity: peakCoverage.lt(1) ? "pressure" : "caution",
       title: "Peak capacity pressure",
       message: `Overall capacity may be sufficient, but expected peak-time redemptions (${expectedPeakRedemptions.toFixed(0)} sessions/mo) are approaching available peak flexible capacity (${eligiblePeakFlexible.toFixed(0)} sessions/mo). Coverage: ${peakCoverage.toFixed(2)}×.`,
+    });
+  }
+
+  const bookedPct = capacity.occupiedSeatsMonthly.isZero()
+    ? assumptions.rampUpStartingOccupancyPct
+    : capacity.occupiedSeatsMonthly
+        .dividedBy(capacity.monthlyAvailableSeats)
+        .times(100)
+        .toNumber();
+  const commercial = calculateCommercialPackSales(assumptions, bookedPct);
+  const uncommitted = Decimal.max(
+    0,
+    capacity.monthlyAvailableSeats.minus(capacity.occupiedSeatsMonthly).minus(standingCommitted)
+  );
+
+  if (commercial.multiplier.gt(1)) {
+    warnings.push({
+      code: "aggressive_presale",
+      severity: "caution",
+      title: "Aggressive pack pre-sale during ramp",
+      message: `Pack sales volume is ×${commercial.multiplier.toFixed(2)} while booked occupancy is ${bookedPct.toFixed(0)}% (target ${assumptions.projectedBookedOccupancyPct}%). Cash and P&L include purchase-time revenue — plan delivery capacity for ${commercial.totalNewCredits.toFixed(0)} new credits this month.`,
+    });
+  }
+
+  if (
+    commercial.totalNewCredits.gt(0) &&
+    commercial.totalNewCredits.gt(uncommitted)
+  ) {
+    warnings.push({
+      code: "aggressive_presale",
+      severity: "pressure",
+      title: "Pre-sales exceed open capacity",
+      message: `New pack sales add ${commercial.totalNewCredits.toFixed(0)} credits vs ${uncommitted.toFixed(0)} uncommitted spots this month — you may be selling ahead of delivery capacity.`,
     });
   }
 

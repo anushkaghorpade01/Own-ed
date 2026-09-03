@@ -2,6 +2,7 @@ import { d, trace, type CalculationTrace } from "../decimal";
 import type { FinanceAssumptions } from "../schemas";
 import type { RevenueResult } from "./revenue";
 import type { DirectCostsResult, OperatingExpensesResult } from "./costs";
+import type { CommercialPackSalesResult } from "./commercial-pack-sales";
 import Decimal from "decimal.js";
 
 export interface PerSeatEconomics {
@@ -168,6 +169,11 @@ export interface CreditLiabilityResult {
   /** True when total capacity looks sufficient but peak/eligible slots are constrained */
   slotConstraintDetected: boolean;
   slotConstraintWarning: string | null;
+  /** New credits sold this month via commercial pack volume */
+  newCreditsSoldThisMonth: Decimal;
+  /** True when ramp pack sales multiplier > 1 */
+  aggressivePresaleActive: boolean;
+  presaleWarning: string | null;
   warning: string;
   traces: Record<string, CalculationTrace>;
 }
@@ -182,7 +188,8 @@ export function calculateCreditLiability(
   assumptions: FinanceAssumptions,
   monthlyAvailableSeats: Decimal,
   occupiedSeatsMonthly: Decimal,
-  peakSlotsSharePct = 50
+  peakSlotsSharePct = 50,
+  commercialPackSales?: CommercialPackSalesResult
 ): CreditLiabilityResult {
   const totalPhysicalCapacity = monthlyAvailableSeats;
   const expectedOccupiedCapacity = occupiedSeatsMonthly;
@@ -241,7 +248,28 @@ export function calculateCreditLiability(
       "Peak-time eligible capacity is insufficient for expected credit redemptions in constrained booking windows.";
   }
 
+  const newCreditsSoldThisMonth = commercialPackSales?.totalNewCredits ?? new Decimal(0);
+  const aggressivePresaleActive = commercialPackSales?.multiplier.gt(1) ?? false;
+
+  let presaleWarning: string | null = null;
+  if (aggressivePresaleActive && commercialPackSales) {
+    presaleWarning = `Aggressive pre-sale active (×${commercialPackSales.multiplier.toFixed(2)} pack volume while booked occupancy is ${commercialPackSales.bookedOccupancyPct.toFixed(0)}% vs ${assumptions.projectedBookedOccupancyPct}% target). P&L and cash include purchase-time pack revenue — monitor credit delivery capacity.`;
+  }
+
+  if (
+    newCreditsSoldThisMonth.gt(0) &&
+    newCreditsSoldThisMonth.gt(uncommittedRemainingCapacity)
+  ) {
+    presaleWarning = [
+      presaleWarning,
+      `New pack sales this month add ${newCreditsSoldThisMonth.toFixed(0)} credits — above ${uncommittedRemainingCapacity.toFixed(0)} uncommitted monthly spots at current occupancy. You may be selling ahead of delivery capacity.`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
   const warning =
+    presaleWarning ??
     slotConstraintWarning ??
     (creditsExpectedToExpireUnused.gt(0)
       ? `${creditsExpectedToExpireUnused.toFixed(0)} credits forecast to expire unused (breakage). Accounting treatment is configurable — confirm with accountant.`
@@ -264,6 +292,9 @@ export function calculateCreditLiability(
     peakStatus,
     slotConstraintDetected,
     slotConstraintWarning,
+    newCreditsSoldThisMonth,
+    aggressivePresaleActive,
+    presaleWarning,
     warning,
     traces: {
       eligibleCoverage: trace(

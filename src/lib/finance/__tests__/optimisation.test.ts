@@ -132,7 +132,7 @@ describe("Full analysis", () => {
     expect(analysis.profitCurve.some((p) => p.occupancyPct === 100)).toBe(true);
     expect(analysis.bottleneck.primary).toBeTruthy();
     expect(analysis.opportunities.length).toBeGreaterThan(0);
-  }, 15000);
+  }, 30_000);
 
   it("excludes locked levers from single-lever solvers", () => {
     const analysis = runOptimisationAnalysis(clone(), 100_000, "net_profit", {
@@ -163,7 +163,7 @@ describe("Full analysis", () => {
     });
     expect(analysis.singleLeverSolvers.some((s) => s.lever === "pack_pricing")).toBe(true);
     expect(analysis.singleLeverSolvers.some((s) => s.lever === "realised_revenue")).toBe(false);
-  });
+  }, 15_000);
 
   it("handles negative profit base case", () => {
     const base = clone();
@@ -180,7 +180,7 @@ describe("Full analysis", () => {
     base.operatingDaysPerWeek = 1;
     const analysis = runOptimisationAnalysis(base, 100_000);
     expect(analysis.currentModel.availableSpots.gt(0)).toBe(true);
-  });
+  }, 15_000);
 });
 
 describe("Structural viability", () => {

@@ -48,6 +48,7 @@ export function migrateLegacyProducts(products: ProductInput[]): {
         validityDays: undefined,
         expectedMonthlyUsageCredits: undefined,
         packRules: FlexiblePackRulesSchema.parse({
+          ...(product.packRules ?? {}),
           validityValue: mapping.validityWeeks,
           validityUnit: "weeks",
           expectedRedemptionRatePct: product.expectedRedemptionRatePct ?? 90,

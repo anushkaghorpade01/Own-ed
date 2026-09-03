@@ -64,7 +64,13 @@ function computeMonthInternals(
       : normalizeAssumptions(assumptions);
   const capacity = calculateCapacity(base, occupancy);
   const classesPerMonth = capacity.weeklyClasses.times(WEEKS_PER_MONTH);
-  const revenue = calculateRevenue(base, capacity.occupiedSeatsMonthly);
+  const bookedPct =
+    month !== undefined
+      ? occupancy.times(100).toNumber()
+      : base.projectedBookedOccupancyPct;
+  const revenue = calculateRevenue(base, capacity.occupiedSeatsMonthly, {
+    bookedOccupancyPct: bookedPct,
+  });
   const directCosts = calculateDirectCosts(
     base,
     capacity.attendedSeatsMonthly,
@@ -187,7 +193,8 @@ export function runFinanceModel(
       safe,
       capacity.monthlyAvailableSeats,
       capacity.occupiedSeatsMonthly,
-      safe.peakSlotsShareOfCapacityPct
+      safe.peakSlotsShareOfCapacityPct,
+      revenue.commercialPackSales
     ),
     unusedCapacity: calculateUnusedCapacityAnalysis(
       safe,
