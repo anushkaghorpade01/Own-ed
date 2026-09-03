@@ -9,6 +9,7 @@ describe("founder funding audit metrics", () => {
       ...createSampleAssumptions(),
       founderEquity: 2_500_000,
       loanAmount: 0,
+      preOpeningMonths: 0,
     });
     const launch = model.cashFlow.launch;
     const health = model.cashFlow.cashHealth;

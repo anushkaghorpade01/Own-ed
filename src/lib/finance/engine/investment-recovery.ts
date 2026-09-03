@@ -5,6 +5,9 @@ import { d, sum } from "../decimal";
 import type Decimal from "decimal.js";
 import type { FinanceAssumptions, FundingEvent } from "../schemas";
 import type { CapexResult } from "./costs";
+import {
+  getInitialCashPaidOut,
+} from "./pre-opening";
 import type { MonthlyCashFlow } from "./cash-flow";
 import {
   formatRecoveryPosition,
@@ -96,8 +99,10 @@ export function buildLaunchCashBreakdown(
   const founderEquity = d(assumptions.founderEquity);
   const loanAmount = d(assumptions.loanAmount);
   const additionalFundingTotal = sumAdditionalFunding(assumptions);
-  const cashPaidOutAtLaunch = nonRecoverableCapex.plus(recoverableDeposits);
-  const totalCashRequiredAtLaunch = cashPaidOutAtLaunch.plus(workingCapital);
+  const cashPaidOutAtLaunch = getInitialCashPaidOut(assumptions, capex);
+  const totalCashRequiredAtLaunch = nonRecoverableCapex
+    .plus(recoverableDeposits)
+    .plus(workingCapital);
   const paybackInvestmentBase = assumptions.includeRecoverableDepositInPayback
     ? nonRecoverableCapex.plus(workingCapital).plus(recoverableDeposits)
     : nonRecoverableCapex.plus(workingCapital);

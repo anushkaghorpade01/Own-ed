@@ -344,7 +344,7 @@ export const CostEscalationPresetSchema = z.enum(["custom", "low", "base", "high
 export type CostEscalationPreset = z.infer<typeof CostEscalationPresetSchema>;
 
 export const ForecastSettingsSchema = z.object({
-  forecastYears: z.number().int().min(1).max(10).default(3),
+  forecastYears: z.number().int().min(1).max(10).default(5),
   costEscalationPreset: CostEscalationPresetSchema.default("base"),
   costEscalations: z.array(CostEscalationRuleSchema).default([]),
   productPriceGrowth: z.array(ProductPriceGrowthSchema).default([]),
@@ -499,6 +499,11 @@ export const FinanceAssumptionsSchema = z.object({
   rampUpTargetOccupancyPct: z.number().min(0).max(100).default(70),
   rampUpMonthsToTarget: z.number().int().positive().default(12),
   rampUpCurve: z.array(RampUpMonthSchema).default([]),
+
+  /** Months paying rent before first class (fit-out / lease-only period) */
+  preOpeningMonths: z.number().int().min(0).max(24).default(0),
+  /** Minimal = rent + CAM + base utilities; full = all operating expenses */
+  preOpeningOpexMode: z.enum(["minimal", "full"]).default("minimal"),
 
   // Credit liability
   creditsSoldOutstanding: z.number().int().min(0).default(0),

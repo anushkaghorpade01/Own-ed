@@ -125,7 +125,7 @@ export function resolveForecastSettings(
   const mergedRules = mergePresetIntoRules(baseRules, preset);
 
   return {
-    forecastYears: stored?.forecastYears ?? 3,
+    forecastYears: stored?.forecastYears ?? 5,
     costEscalationPreset: preset,
     costEscalations: mergedRules,
     productPriceGrowth: stored?.productPriceGrowth ?? [],

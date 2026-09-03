@@ -90,9 +90,11 @@ export function explainPayback(model: FinanceModelOutput): BusinessInsight {
     " Operating inflows follow earned-revenue timing (gross billings when services are modelled as delivered), not upfront prepaid pack purchase cash — payback may look faster than true cash recovery until prepaid timing is modelled.";
 
   if (pb.paybackNotReached) {
+    const horizonMonths = model.monthlyProjection.length;
+    const horizonYears = Math.round(horizonMonths / 12);
     return {
-      headline: "Setup investment not recovered within 36 months at current plan",
-      explanation: `About ${formatINR(invested)} in non-recoverable setup and working capital. Cumulative operating cash flow does not recover this within 3 years under current assumptions.${cashBasisNote}`,
+      headline: `Setup investment not recovered within ${horizonMonths} months at current plan`,
+      explanation: `About ${formatINR(invested)} in non-recoverable setup and working capital. Cumulative operating cash flow does not recover this within ${horizonYears} years under current assumptions.${cashBasisNote}`,
       action: "Stress-test occupancy, pricing, or rent on the Scenarios page.",
     };
   }

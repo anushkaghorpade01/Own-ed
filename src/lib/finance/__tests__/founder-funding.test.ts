@@ -132,10 +132,18 @@ describe("Launch cash reconciliation", () => {
     );
     expect(
       launch.totalCashRequiredAtLaunch
-        .minus(launch.cashPaidOutAtLaunch)
+        .minus(launch.nonRecoverableCapex)
+        .minus(launch.recoverableDeposits)
         .minus(launch.workingCapital)
         .toNumber()
     ).toBe(0);
+    if ((model.assumptions.preOpeningMonths ?? 0) === 0) {
+      expect(launch.cashPaidOutAtLaunch.toNumber()).toBe(
+        launch.nonRecoverableCapex.plus(launch.recoverableDeposits).toNumber()
+      );
+    } else {
+      expect(launch.cashPaidOutAtLaunch.lt(launch.nonRecoverableCapex)).toBe(true);
+    }
   });
 });
 

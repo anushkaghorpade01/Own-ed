@@ -3,6 +3,7 @@ import { createSampleAssumptions } from "../sample-data";
 import { calculatePrepaidPackCash } from "../engine/prepaid-cash";
 import { runFinanceModel } from "../run-model";
 import { ensureProductVersionFields } from "../engine/product-catalog";
+import { getFirstOperatingMonth } from "../engine/pre-opening";
 
 describe("Prepaid cash model", () => {
   it("collects full gross pack price at purchase, not redemption timing", () => {
@@ -51,6 +52,8 @@ describe("Prepaid cash model", () => {
 
     const model = runFinanceModel(assumptions);
     expect(model.cashFlow.inflowBasis).toBe("prepaid_pack_purchase_cash");
-    expect(model.cashFlow.monthly[0].cashInflows.toNumber()).toBeGreaterThanOrEqual(16000);
+    const firstOp = getFirstOperatingMonth(assumptions);
+    const firstOpRow = model.cashFlow.monthly.find((m) => m.month === firstOp)!;
+    expect(firstOpRow.cashInflows.toNumber()).toBeGreaterThanOrEqual(16000);
   });
 });

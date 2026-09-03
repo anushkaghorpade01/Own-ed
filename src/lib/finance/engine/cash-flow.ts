@@ -13,6 +13,11 @@ import {
   type LaunchCashBreakdown,
   type CashHealthSummary,
 } from "./investment-recovery";
+import {
+  getCapexPaymentForMonth,
+  isPreOpeningMonth,
+  toOperatingMonth,
+} from "./pre-opening";
 import Decimal from "decimal.js";
 
 export interface BankCashMovements {
@@ -68,11 +73,17 @@ export function getRampUpOccupancy(
   assumptions: FinanceAssumptions,
   month: number
 ): Decimal {
+  if (isPreOpeningMonth(assumptions, month)) {
+    return new Decimal(0);
+  }
+
+  const operatingMonth = toOperatingMonth(assumptions, month);
+
   if (
     assumptions.rampUpMode === "manual" &&
     assumptions.rampUpCurve.length > 0
   ) {
-    const entry = assumptions.rampUpCurve.find((r) => r.month === month);
+    const entry = assumptions.rampUpCurve.find((r) => r.month === operatingMonth);
     if (entry) return d(entry.occupancyPct).dividedBy(100);
     const last = assumptions.rampUpCurve[assumptions.rampUpCurve.length - 1];
     return d(last.occupancyPct).dividedBy(100);
@@ -83,10 +94,10 @@ export function getRampUpOccupancy(
   const target = d(assumptions.projectedBookedOccupancyPct).dividedBy(100);
   const months = assumptions.rampUpMonthsToTarget;
 
-  if (month >= months) return target;
+  if (operatingMonth >= months) return target;
   if (months <= 1) return target;
 
-  const progress = d(month - 1).dividedBy(months - 1);
+  const progress = d(operatingMonth - 1).dividedBy(months - 1);
   return start.plus(target.minus(start).times(progress));
 }
 
@@ -153,17 +164,18 @@ export function calculateCashFlow(
       initialInvestment
     );
 
-    const capexOutflows = month === 1 ? capex.nonRecoverableCapex : new Decimal(0);
-    // Deposit is always a launch cash outflow — payback toggle affects hurdle only.
-    const depositOutflow = month === 1 ? capex.recoverableDeposits : new Decimal(0);
+    const capexPayment = getCapexPaymentForMonth(assumptions, capex, month);
+    const capexOutflows = capexPayment.nonRecoverable;
+    const depositOutflow = capexPayment.deposit;
 
     const fundingInflows = getFundingInflowsForMonth(assumptions, month);
     const financingOutflows =
       month > assumptions.loanGracePeriodMonths ? loanPayment : new Decimal(0);
 
+    const scheduledCapexCash = capexOutflows.plus(depositOutflow);
+
     const netCashFlow = netOperatingCashFlow
-      .minus(capexOutflows)
-      .minus(depositOutflow)
+      .minus(scheduledCapexCash)
       .plus(fundingInflows)
       .minus(financingOutflows);
 
@@ -182,7 +194,7 @@ export function calculateCashFlow(
         additionalFunding: fundingInflows
           .minus(d(assumptions.founderEquity))
           .minus(d(assumptions.loanAmount)),
-        capexPaid: capex.nonRecoverableCapex,
+        capexPaid: capexOutflows,
         depositPaid: depositOutflow,
         loanRepayments: financingOutflows,
         operatingInflows: cashInflows,
@@ -196,6 +208,7 @@ export function calculateCashFlow(
       bankCashBalance = prior
         .plus(extraFunding)
         .plus(netOperatingCashFlow)
+        .minus(scheduledCapexCash)
         .minus(financingOutflows);
     }
 

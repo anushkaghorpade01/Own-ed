@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import type { FinancialExportModel } from "../types";
 import { exportNum, exportWholePct } from "../decimal";
-import { ExportCellRegistry } from "./cell-registry";
+import { ExportCellRegistry, colLetter } from "./cell-registry";
 import { SHEET, type WorkbookWriteContext } from "./workbook-context";
 import {
   FONT,
@@ -720,9 +720,15 @@ function writeYearlyPL(wb: ExcelJS.Workbook, ctx: WorkbookWriteContext) {
   setLandscapePrint(sheet);
   const years = data.model.yearlyPL.years;
   const monthCount = data.model.monthlyProjection.length;
-  setColumnWidths(sheet, [28, 16, 16, 16, 14, 14]);
+  const yearCount = years.length;
+  const yoyCount = Math.max(0, yearCount - 1);
+  setColumnWidths(sheet, [28, ...Array(yearCount).fill(16), ...Array(yoyCount).fill(14)]);
 
-  const headers = ["LINE ITEM", "YEAR 1", "YEAR 2", "YEAR 3", "YOY Y2 %", "YOY Y3 %"];
+  const headers = [
+    "LINE ITEM",
+    ...years.map((y) => `YEAR ${y.year}`),
+    ...years.slice(1).map((_, i) => `YOY Y${i + 2} %`),
+  ];
   headers.forEach((h, i) => {
     sheet.getCell(1, i + 1).value = h;
   });
@@ -738,11 +744,11 @@ function writeYearlyPL(wb: ExcelJS.Workbook, ctx: WorkbookWriteContext) {
     { label: "Planning net profit", monthlyKey: "monthly.net_profit", yearlyKeyY1: "yearly.net_profit.y1", bold: true },
   ];
 
-  const yearRanges = [
-    { col: 2, start: 2, end: Math.min(13, monthCount + 1) },
-    { col: 3, start: 14, end: Math.min(25, monthCount + 1) },
-    { col: 4, start: 26, end: Math.min(37, monthCount + 1) },
-  ];
+  const yearRanges = years.map((y, i) => ({
+    col: i + 2,
+    start: y.startMonth + 1,
+    end: Math.min(y.endMonth + 1, monthCount + 1),
+  }));
 
   let row = 2;
   for (const f of fields) {
@@ -760,18 +766,18 @@ function writeYearlyPL(wb: ExcelJS.Workbook, ctx: WorkbookWriteContext) {
         }
       }
       registry.registerCell(SHEET.yearlyPl, row, 2, f.yearlyKeyY1);
-      applyFormulaCell(
-        sheet.getCell(row, 5),
-        `IF(B${row}=0,"", (C${row}-B${row})/ABS(B${row}))`,
-        FORMATS.percent
-      );
-      applyFormulaCell(
-        sheet.getCell(row, 6),
-        `IF(C${row}=0,"", (D${row}-C${row})/ABS(C${row}))`,
-        FORMATS.percent
-      );
+      for (let y = 1; y < yearCount; y++) {
+        const priorCol = colLetter(y + 1);
+        const currentCol = colLetter(y + 2);
+        const yoyCol = yearCount + 1 + y;
+        applyFormulaCell(
+          sheet.getCell(row, yoyCol),
+          `IF(${priorCol}${row}=0,"", (${currentCol}${row}-${priorCol}${row})/ABS(${priorCol}${row}))`,
+          FORMATS.percent
+        );
+      }
     } else {
-      for (let y = 0; y < Math.min(3, years.length); y++) {
+      for (let y = 0; y < yearCount; y++) {
         const keyMap: Record<string, keyof (typeof years)[0]> = {
           "monthly.net_sales": "netRevenue",
           "monthly.direct_costs": "directCosts",

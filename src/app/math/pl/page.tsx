@@ -403,7 +403,7 @@ export default function PLPage() {
             <CardHeader>
               <CardTitle className="text-base">Forecast health</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-3">
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {yearly.forecastHealth.map((h) => (
                 <div key={h.year} className="rounded-lg border border-[#E8E2D9] p-3">
                   <p className="text-xs font-medium text-[#A39E98]">YEAR {h.year}</p>
@@ -419,7 +419,7 @@ export default function PLPage() {
 
       <p className="mt-4 text-xs text-[#A39E98]">
         Yearly totals sum months {yearly.years[0]?.startMonth ?? 1}–
-        {yearly.years[yearly.years.length - 1]?.endMonth ?? 36} from the same monthly engine — not
+        {yearly.years[yearly.years.length - 1]?.endMonth ?? 60} from the same monthly engine — not
         Year 1 × 12. Configure structural changes (reformers, services) under{" "}
         <a href="/math/assumptions" className="underline">
           Assumptions → Forecast structural changes

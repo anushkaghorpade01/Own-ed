@@ -6,9 +6,13 @@ import {
   type MonthStructuralSnapshot,
 } from "./forecast-timeline";
 import { calculateCapacity } from "./capacity";
-import { calculateRevenue } from "./revenue";
+import { calculateRevenue, createPreOpeningRevenueResult } from "./revenue";
 import { calculateDirectCosts, calculateOperatingExpenses } from "./costs";
 import { calculatePL, type PLResult } from "./pl";
+import {
+  isPreOpeningMonth,
+  calculatePreOpeningOperatingExpenses,
+} from "./pre-opening";
 import { normalizeAssumptions } from "../validation";
 import { WEEKS_PER_MONTH } from "../decimal";
 import type { FinanceAssumptions } from "../schemas";
@@ -33,6 +37,37 @@ export function computeMonthSnapshot(
   const monthAssumptions = normalizeAssumptions(
     resolveMonthAssumptions(baseAssumptions, month)
   );
+
+  if (isPreOpeningMonth(baseAssumptions, month)) {
+    const occupancy = new Decimal(0);
+    const capacity = calculateCapacity(monthAssumptions, occupancy);
+    const revenue = createPreOpeningRevenueResult(monthAssumptions);
+    const directCosts = calculateDirectCosts(
+      monthAssumptions,
+      new Decimal(0),
+      new Decimal(0),
+      revenue.grossCustomerBillings
+    );
+    const operatingExpenses = calculatePreOpeningOperatingExpenses(monthAssumptions);
+    const pl = calculatePL(monthAssumptions, revenue, directCosts, operatingExpenses);
+    const forecast = resolveForecastSettings(baseAssumptions);
+    const structural = captureStructuralSnapshot(
+      monthAssumptions,
+      capacity.monthlyAvailableSeats.toNumber(),
+      forecast.forecastTimeline,
+      month
+    );
+    return {
+      month,
+      occupancyPct: occupancy,
+      revenue,
+      directCosts,
+      operatingExpenses,
+      pl,
+      structural,
+    };
+  }
+
   const occupancy = getRampUpOccupancy(baseAssumptions, month);
   const capacity = calculateCapacity(monthAssumptions, occupancy);
   const classesPerMonth = capacity.weeklyClasses.times(WEEKS_PER_MONTH);

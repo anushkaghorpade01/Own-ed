@@ -19,6 +19,7 @@ import {
   DraftDepreciationAssetRow,
   DraftNumberField,
   pickNumericFields,
+  useSectionContext,
   type CustomExpenseDraft,
   type DepreciationAssetDraft,
 } from "@/components/finance/assumption-section";
@@ -101,6 +102,8 @@ const RAMP_KEYS = [
   "rampUpMonthsToTarget",
 ] as const;
 
+const LAUNCH_TIMELINE_KEYS = ["preOpeningMonths"] as const;
+
 function fieldLabels(fields: Array<{ label: string }>): string[] {
   return fields.map((f) => f.label);
 }
@@ -111,6 +114,7 @@ const SEARCH_INDEX = [
   { title: "Occupancy / Demand", keywords: ["Booked occupancy", "Attended occupancy", "Peak occupancy", "Off-peak occupancy"] },
   { title: "Fixed operating expenses", keywords: [...fieldLabels(FIXED_FIELDS), "owner compensation", "custom fixed"] },
   { title: "Variable expenses", keywords: [...fieldLabels(VARIABLE_FIELDS), "custom variable"] },
+  { title: "Launch timeline", keywords: ["pre-opening", "fit-out", "interiors", "lease", "before open", "rent before revenue"] },
   { title: "Ramp-up", keywords: ["Starting occupancy", "Target occupancy", "Months to target"] },
   { title: "Setup investment (capex)", keywords: [...fieldLabels(CAPEX_FIELDS), "launch investment", "working capital"] },
   { title: "Deposits", keywords: [...fieldLabels(DEPOSIT_FIELDS), "recoverable deposit"] },
@@ -413,6 +417,35 @@ export default function AssumptionsPage() {
         </AssumptionSection>
 
         <AssumptionSection
+          title="Launch timeline"
+          searchKeywords={SEARCH_INDEX.find((s) => s.title === "Launch timeline")!.keywords}
+          {...sectionSearch}
+          committed={{
+            ...pickNumericFields(a, [...LAUNCH_TIMELINE_KEYS]),
+            preOpeningOpexMode: a.preOpeningOpexMode ?? "minimal",
+          }}
+          onSave={(draft) => updateAssumptions(draft)}
+        >
+          <p className="mb-4 text-xs text-[#6B6560]">
+            Months after lease / funding when you pay rent but are not yet running classes
+            (interiors, approvals, setup). Interior fit-out cash is spread across these months;
+            equipment and other setup capex is paid in the first operating month. Ramp-up starts
+            after pre-opening ends.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <DraftNumberField
+              field="preOpeningMonths"
+              label="Pre-opening months"
+              integer
+              min={0}
+              max={24}
+              help="0 = open for classes from forecast month 1 (legacy behaviour)"
+            />
+          </div>
+          <LaunchTimelineOpexMode />
+        </AssumptionSection>
+
+        <AssumptionSection
           title="Ramp-up"
           searchKeywords={SEARCH_INDEX.find((s) => s.title === "Ramp-up")!.keywords}
           {...sectionSearch}
@@ -429,7 +462,7 @@ export default function AssumptionsPage() {
               field="rampUpStartingOccupancyPct"
               label="Starting occupancy"
               suffix="%"
-              help="Month 1 occupancy — studio won't be full on day one"
+              help="First month of classes — ramp begins after pre-opening months"
             />
             <DraftNumberField
               field="rampUpTargetOccupancyPct"
@@ -688,6 +721,46 @@ export default function AssumptionsPage() {
             <DraftDateField field="targetOpeningDate" label="Target opening date" />
           </div>
         </AssumptionSection>
+      </div>
+    </div>
+  );
+}
+
+type LaunchTimelineDraft = {
+  preOpeningMonths: number;
+  preOpeningOpexMode: "minimal" | "full";
+};
+
+function LaunchTimelineOpexMode() {
+  const { draft, patch } = useSectionContext<LaunchTimelineDraft>();
+  const modes: Array<{ id: LaunchTimelineDraft["preOpeningOpexMode"]; label: string }> = [
+    { id: "minimal", label: "Minimal (rent + CAM + base power)" },
+    { id: "full", label: "Full operating expenses" },
+  ];
+
+  if ((draft.preOpeningMonths ?? 0) === 0) {
+    return (
+      <p className="mt-3 text-xs text-[#A39E98]">
+        Pre-opening opex applies only when pre-opening months is greater than zero.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4">
+      <p className="mb-2 text-xs font-medium text-[#6B6560]">Pre-opening operating costs</p>
+      <div className="flex flex-wrap gap-2">
+        {modes.map(({ id, label }) => (
+          <Button
+            key={id}
+            type="button"
+            size="sm"
+            variant={draft.preOpeningOpexMode === id ? "default" : "outline"}
+            onClick={() => patch({ preOpeningOpexMode: id })}
+          >
+            {label}
+          </Button>
+        ))}
       </div>
     </div>
   );

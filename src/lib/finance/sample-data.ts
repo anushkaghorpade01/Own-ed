@@ -356,6 +356,8 @@ export function createSampleAssumptions(): FinanceAssumptions {
     rampUpTargetOccupancyPct: 60,
     rampUpMonthsToTarget: 12,
     rampUpCurve: [],
+    preOpeningMonths: 2,
+    preOpeningOpexMode: "minimal",
   creditsSoldOutstanding: 146,
   creditsExpectedRedemptionBeforeExpiry: 128,
   creditsExpectedToExpireUnused: 18,
@@ -384,7 +386,7 @@ export function createSampleAssumptions(): FinanceAssumptions {
   },
   customExpenses: [],
   forecastSettings: {
-    forecastYears: 3,
+    forecastYears: 5,
     costEscalationPreset: "base",
     costEscalations: [],
     productPriceGrowth: [],

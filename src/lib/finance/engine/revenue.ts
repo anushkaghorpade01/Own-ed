@@ -157,6 +157,35 @@ export interface RevenueResult {
   traces: Record<string, CalculationTrace>;
 }
 
+const ZERO = new Decimal(0);
+
+/** No commercial activity — studio not yet open for classes. */
+export function createPreOpeningRevenueResult(
+  assumptions: FinanceAssumptions
+): RevenueResult {
+  const weighted = calculateWeightedRealisedRevenue(assumptions);
+  return {
+    groupClassRevenue: ZERO,
+    standingSpotRevenue: ZERO,
+    privateRevenue: ZERO,
+    duoRevenue: ZERO,
+    workshopRevenue: ZERO,
+    otherRevenue: ZERO,
+    standbyRevenue: ZERO,
+    dropInRevenue: ZERO,
+    grossBookings: ZERO,
+    discounts: ZERO,
+    refunds: ZERO,
+    grossCustomerBillings: ZERO,
+    gstCollected: ZERO,
+    netRevenue: ZERO,
+    weightedRevenue: weighted,
+    sessionAllocation: allocateSessionsByAccessMix(assumptions, ZERO),
+    productLevel: [],
+    traces: {},
+  };
+}
+
 export function calculateRevenue(
   assumptions: FinanceAssumptions,
   occupiedSeatsMonthly: Decimal
