@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:own": "node scripts/verify-own-plan.cjs && node scripts/verify-own-integrations.cjs"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.20",

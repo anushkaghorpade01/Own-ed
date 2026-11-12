@@ -10,6 +10,7 @@ import {
   ensureBaseCaseMixProducts,
 } from "./engine/service-demand-mix";
 import { resolveSteadyStateAttendedPct } from "./engine/attended-occupancy";
+import { scheduleConflicts } from "./engine/own-operating-plan";
 
 export interface ValidationError {
   field: string;
@@ -99,6 +100,13 @@ export function normalizeAssumptions(
     rampUpCurve: cleaned.rampUpCurve ?? base.rampUpCurve,
   };
 
+  // In OWN mode contributor amounts are the source of truth for founder
+  // funding. Never treat them as revenue or as a second cash injection.
+  if (merged.ownOperatingPlan?.enabled && merged.ownOperatingPlan.contributions.length > 0) {
+    const contributions = merged.ownOperatingPlan.contributions.reduce((total, c) => total + c.amount, 0);
+    // An untouched empty contributor table must not erase existing funding.
+    if (contributions > 0) merged.founderEquity = contributions;
+  }
   const parsed = FinanceAssumptionsSchema.safeParse(merged);
   const normalized = parsed.success ? parsed.data : base;
   const withMix = migratePricingSemantics(ensureBaseCaseMixProducts(normalized));
@@ -129,6 +137,31 @@ export function validateAssumptions(
         message: issue.message,
       });
     }
+  }
+
+  if (assumptions.ownOperatingPlan?.enabled) {
+    const plan = assumptions.ownOperatingPlan;
+    if (!plan.schedule.some(s => s.active)) errors.push({
+      field: "ownOperatingPlan.schedule",
+      message: "Add weekly class or private-session slots to forecast available capacity.",
+    });
+    for (const message of scheduleConflicts(plan)) errors.push({
+      field: "ownOperatingPlan.schedule",
+      message,
+    });
+    for (const item of plan.packages.filter(p => p.active)) {
+      if (item.price === 0 && item.expectedSalesPerMonth > 0) errors.push({
+        field: `ownOperatingPlan.packages.${item.id}.price`,
+        message: `${item.family} · ${item.name} has forecast sales but no selling price.`,
+      });
+      if (Object.values(item.sessions).every(n => n === 0)) errors.push({
+        field: `ownOperatingPlan.packages.${item.id}.sessions`,
+        message: `${item.family} · ${item.name} has no session allocation.`,
+      });
+    }
+    // The legacy flexible-credit catalogue is inactive in OWN mode; its
+    // pricing and mix checks should not invalidate the new operating plan.
+    return errors;
   }
 
   const creditProducts = assumptions.products.filter(

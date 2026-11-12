@@ -63,8 +63,8 @@ export function calculateUnitEconomics(
       assumptions.maxGroupClassSize
     ).plus(d(assumptions.instructorPerAttendeePayout));
 
-  const contributionMarginPerSeat = attendedSeatsMonthly.isZero()
-    ? blendedContribution
+  const contributionMarginPerSeat = assumptions.ownOperatingPlan?.enabled
+    ? (attendedSeatsMonthly.isZero() ? new Decimal(0) : revenue.netRevenue.minus(directCosts.totalDirectCosts).dividedBy(attendedSeatsMonthly))
     : blendedContribution;
 
   const perClass: PerClassEconomics[] = [];

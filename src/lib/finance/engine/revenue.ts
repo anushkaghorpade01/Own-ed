@@ -1,4 +1,5 @@
 import { d, trace, sum, WEEKS_PER_MONTH, type CalculationTrace } from "../decimal";
+import { forecastOwnPlan } from "./own-operating-plan";
 import type { FinanceAssumptions, Product } from "../schemas";
 import Decimal from "decimal.js";
 import {
@@ -201,6 +202,7 @@ export function createPreOpeningRevenueResult(
 export interface CalculateRevenueOptions {
   /** Booked occupancy % of capacity for ramp pack sales multiplier (defaults to target) */
   bookedOccupancyPct?: number;
+  month?: number;
 }
 
 export function calculateRevenue(
@@ -209,6 +211,41 @@ export function calculateRevenue(
   options?: CalculateRevenueOptions
 ): RevenueResult {
   const safe = syncPrivateAssumptionsFromProduct(assumptions);
+  if (safe.ownOperatingPlan?.enabled) {
+    const plan = safe.ownOperatingPlan;
+    const month = Math.max(1, options?.month ?? 1);
+    const forecast = forecastOwnPlan(plan, safe.weeksClosedPerYear, month)[month - 1];
+    const blank = createPreOpeningRevenueResult({...safe, ownOperatingPlan: {...plan, enabled: false}});
+    const netRevenue = d(forecast.totalRevenue);
+    const otherRevenue = d(forecast.otherRevenue);
+    const privateRevenue = sum(plan.packages.filter(p => p.active && (p.sessions.private_pilates || p.sessions.private_strength)).map(p =>
+      d(p.price).times(p.expectedSalesPerMonth).times(plan.seasonDemandPct[plan.seasonByMonth[(month-1)%12]] / Math.max(1, plan.seasonDemandPct.normal))
+    ));
+    const groupClassRevenue = d(forecast.productRevenue).minus(privateRevenue);
+    const gstCollected = safe.gstRegistered ? netRevenue.times(safe.gstRatePct).dividedBy(100) : ZERO;
+    const grossCustomerBillings = netRevenue.plus(gstCollected);
+    const seasonalMultiplier = plan.seasonDemandPct[plan.seasonByMonth[(month-1)%12]] / Math.max(1, plan.seasonDemandPct.normal);
+    const productLevel: ProductLevelRevenue[] = [
+      ...plan.packages.filter(p => p.active).map(p => ({
+        productId: p.id, productName: `${p.family} · ${p.name}`,
+        productType: (p.sessions.private_pilates || p.sessions.private_strength ? "private" : p.name.toLowerCase().includes("drop-in") ? "drop_in" : "credit_pack") as Product["type"],
+        sessions: d(p.expectedSalesPerMonth * seasonalMultiplier),
+        netRevenue: d(p.price * p.expectedSalesPerMonth * seasonalMultiplier),
+        cashCollected: d(p.price * p.expectedSalesPerMonth * seasonalMultiplier),
+      })),
+      ...plan.otherRevenue.filter(r => r.active).map(r => ({
+        productId: r.id, productName: r.name,
+        productType: "other" as Product["type"],
+        sessions: d(r.monthlyUnits[(month-1)%12]),
+        netRevenue: d(r.monthlyUnits[(month-1)%12] * r.unitPrice),
+        cashCollected: d(r.monthlyUnits[(month-1)%12] * r.unitPrice),
+      })),
+    ];
+    return {...blank, groupClassRevenue, commercialPackRevenue: d(forecast.productRevenue), privateRevenue,
+      otherRevenue, netRevenue, grossBookings: grossCustomerBillings,
+      grossCustomerBillings, gstCollected, productLevel,
+    };
+  }
   const bookedOccupancyPct =
     options?.bookedOccupancyPct ?? safe.projectedBookedOccupancyPct;
   const commercialPackSales = calculateCommercialPackSales(safe, bookedOccupancyPct);

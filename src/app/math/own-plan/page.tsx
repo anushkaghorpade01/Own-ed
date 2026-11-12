@@ -1,0 +1,102 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useApp } from "@/lib/store/app-store";
+import type { OwnOperatingPlan, OwnPackage, OwnOtherRevenue, OwnScheduleEntry } from "@/lib/finance/schemas";
+import { initialOwnPlan, forecastOwnPlan, ownFundingTotal, scheduleConflicts, OWN_MONTHS, OWN_DAYS, OWN_SERVICES } from "@/lib/finance/engine/own-operating-plan";
+import { formatINR } from "@/lib/format/currency";
+import { useFinanceModel } from "@/hooks/use-finance-model";
+
+const label: Record<string, string> = {
+  group_pilates: "Group Pilates", group_strength: "Group Strength", private_pilates: "Private Pilates", private_strength: "Private Strength",
+};
+const money = (n: number) => Number.isFinite(n) ? formatINR(n) : "—";
+const number = (n: number) => Number.isFinite(n) ? Math.round(n).toLocaleString("en-IN") : "—";
+const inputClass = "w-full min-w-0 rounded-md border border-[#E8E2D9] bg-white p-2 text-sm text-[#2C2825]";
+const buttonClass = "rounded-md border border-[#E8E2D9] px-3 py-1.5 text-sm hover:bg-[#FAF8F5]";
+const card = "rounded-xl border border-[#E8E2D9] bg-white p-4 space-y-4";
+const newid = () => `own-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+function NumberInput({value, onChange, min=0, step=1}: {value:number;onChange:(n:number)=>void;min?:number;step?:number}) {
+  return <input className={inputClass} type="number" min={min} step={step} value={value} onChange={e => onChange(Math.max(min, Number(e.target.value)||0))}/>;
+}
+function StringInput({value,onChange}: {value:string;onChange:(s:string)=>void}) { return <input className={inputClass} value={value} onChange={e=>onChange(e.target.value)}/>; }
+function Section({title,description,children}: {title:string;description?:string;children:React.ReactNode}) {
+  return <section className={card}><div><h2 className="text-lg font-semibold">{title}</h2>{description && <p className="text-sm text-[#6B6560] mt-1">{description}</p>}</div>{children}</section>;
+}
+
+export default function OwnOperatingPlanPage() {
+  const {state, updateAssumptions} = useApp();
+  const financials = useFinanceModel();
+  const plan = state.assumptions.ownOperatingPlan ?? initialOwnPlan();
+  const [month,setMonth] = useState(0);
+  const [mode,setMode] = useState<"packages"|"schedule"|"revenue"|"capital">("packages");
+  const result = useMemo(()=>forecastOwnPlan(plan,state.assumptions.weeksClosedPerYear),[plan,state.assumptions.weeksClosedPerYear]);
+  const current = result[month];
+  const plMonth = plan.enabled ? financials.monthlyProjection[month] : undefined;
+  const conflicts = useMemo(()=>scheduleConflicts(plan),[plan]);
+  const save = (p:OwnOperatingPlan) => updateAssumptions({ownOperatingPlan:p});
+  const change = <K extends keyof OwnOperatingPlan>(key:K,value:OwnOperatingPlan[K])=>save({...plan,[key]:value});
+  const updatePackage = (id:string, patch:Partial<OwnPackage>)=>change("packages",plan.packages.map(p=>p.id===id?{...p,...patch}:p));
+  const updateRevenue = (id:string, patch:Partial<OwnOtherRevenue>)=>change("otherRevenue",plan.otherRevenue.map(r=>r.id===id?{...r,...patch}:r));
+  const updateSchedule = (id:string, patch:Partial<OwnScheduleEntry>)=>change("schedule",plan.schedule.map(s=>s.id===id?{...s,...patch}:s));
+  return <div className="space-y-5 pb-12">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-semibold">OWN Operating Plan</h1><p className="text-sm text-[#6B6560]">Editable products, schedule, member retention, seasonal demand, additional income and capital contributions.</p></div>
+      <label className="flex gap-2 items-center text-sm"><input type="checkbox" checked={plan.enabled} onChange={e=>change("enabled",e.target.checked)}/>Activate OWN plan</label>
+    </div>
+    <p className="rounded-md border border-[#E8E2D9] bg-[#FAF8F5] px-3 py-2 text-sm text-[#6B6560]">{plan.enabled ? "OWN package sales, extra revenue and private-session costs feed the central P&L, monthly forecast and scenarios. This page uses sales-based revenue; schedule feasibility must be checked separately before accepting any target." : "OWN is in preview mode. Activate the plan to connect its sales and timetable to the central financial model. Prices start at zero until you set them."}</p>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {[ ["Sales revenue",money(current.totalRevenue)], ["Target gap",money(current.revenueGap)], ["Packages sold",number(current.packageSales)], ["Active members (end)",number(current.membersEnd)] ].map(([title,value])=><div key={title} className="rounded-lg border border-[#E8E2D9] p-3"><div className="text-xs text-[#6B6560]">{title}</div><div className="mt-1 text-lg font-semibold">{value}</div></div>)}
+    </div>
+    {plMonth && <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[["Central P&L net sales",money(plMonth.pl.netRevenue.toNumber())],["Direct costs",money(plMonth.pl.directCosts.toNumber())],["EBITDA",money(plMonth.pl.ebitda.toNumber())],["Net profit",money(plMonth.pl.netProfit.toNumber())]].map(([title,value])=><div key={title} className="rounded-lg border border-[#E8E2D9] p-3"><div className="text-xs text-[#6B6560]">{title}</div><div className="mt-1 text-lg font-semibold">{value}</div></div>)}</div>}
+    <div className="flex flex-wrap items-center gap-2"><label className="text-sm">Forecast month</label><select className={inputClass+" max-w-36"} value={month} onChange={e=>setMonth(Number(e.target.value))}>{OWN_MONTHS.map((m,i)=><option value={i} key={m}>{m}</option>)}</select><span className="text-sm text-[#6B6560]">{current.season} season · {current.capacityFeasible?"Capacity feasible":"Capacity shortfall or scheduling conflict"}</span></div>
+    <div className="flex flex-wrap gap-2">{([ ["packages","Products & sales"],["schedule","Schedule & capacity"],["revenue","Other revenue"],["capital","Funding contributors"] ] as const).map(([id,title])=><button key={id} className={buttonClass+(mode===id?" bg-[#2C2825] text-white":"")} onClick={()=>setMode(id)}>{title}</button>)}</div>
+    {mode==="packages" && <>
+      <Section title="Products and packages" description="One sale may provide more than one service. OWN Complete includes 8 Pilates and 4 Strength sessions. All prices are net of GST.">
+        <div className="overflow-x-auto"><table className="w-full min-w-[990px] text-left text-xs"><thead><tr className="border-b"><th>Product line</th><th>Package</th><th>Net price (₹)</th><th>Months</th>{OWN_SERVICES.map(s=><th key={s}>{label[s]}</th>)}<th>Sales / month</th><th>Active</th><th></th></tr></thead><tbody>{plan.packages.map(p=><tr key={p.id} className="border-b"><td><StringInput value={p.family} onChange={v=>updatePackage(p.id,{family:v})}/></td><td><StringInput value={p.name} onChange={v=>updatePackage(p.id,{name:v})}/></td><td><NumberInput value={p.price} onChange={v=>updatePackage(p.id,{price:v})}/></td><td><NumberInput value={p.validityMonths} min={1} onChange={v=>updatePackage(p.id,{validityMonths:Math.round(v)})}/></td>{OWN_SERVICES.map(service=><td key={service}><NumberInput value={p.sessions[service]} onChange={v=>updatePackage(p.id,{sessions:{...p.sessions,[service]:Math.round(v)}})}/></td>)}<td><NumberInput value={p.expectedSalesPerMonth} onChange={v=>updatePackage(p.id,{expectedSalesPerMonth:v})}/></td><td><input type="checkbox" checked={p.active} onChange={e=>updatePackage(p.id,{active:e.target.checked})}/></td><td><button className={buttonClass} onClick={()=>change("packages",plan.packages.filter(x=>x.id!==p.id))}>Remove</button></td></tr>)}</tbody></table></div>
+        <button className={buttonClass} onClick={()=>change("packages",[...plan.packages,{id:newid(),name:"New package",family:"New product",price:0,validityMonths:1,sessions:{group_pilates:0,group_strength:0,private_pilates:0,private_strength:0},expectedSalesPerMonth:0,active:true}])}>+ Add package / product</button>
+      </Section>
+      <Section title="Retention and monthly revenue targets" description="Churn applies to active members, not packages. Packages may be purchased repeatedly. We do not equate packages sold to new members.">
+        <div className="grid gap-4 sm:grid-cols-3"><label className="text-sm">Opening active members<NumberInput value={plan.openingActiveMembers} onChange={v=>change("openingActiveMembers",Math.round(v))}/></label><label className="text-sm">New members / month<NumberInput value={plan.newMembersPerMonth} onChange={v=>change("newMembersPerMonth",Math.round(v))}/></label><label className="text-sm">Monthly member churn %<NumberInput value={plan.churnPct} onChange={v=>change("churnPct",Math.min(100,v))}/></label><label className="text-sm">Expected renewal purchase %<NumberInput value={plan.renewalPurchasePct} onChange={v=>change("renewalPurchasePct",Math.min(100,v))}/></label><label className="text-sm">Expected package usage %<NumberInput value={plan.expectedUsagePct} onChange={v=>change("expectedUsagePct",Math.min(100,v))}/></label><label className="text-sm">{OWN_MONTHS[month]} revenue target<NumberInput value={plan.targetRevenueByMonth[month]} onChange={v=>change("targetRevenueByMonth",plan.targetRevenueByMonth.map((x,i)=>i===month?v:x))}/></label></div>
+        <div className="rounded-lg bg-[#FAF8F5] p-3 space-y-2 text-sm">
+          <p>Additional packages needed: <strong>{current.additionalPackagesRequired===null?"Set package prices first":number(current.additionalPackagesRequired)}</strong>. Additional new members needed, after expected renewals and acquisitions: <strong>{current.additionalNewMembersRequired===null?"Set package prices first":number(current.additionalNewMembersRequired)}</strong>.</p>
+          <p className={current.targetCapacityFeasible?"text-emerald-800":"text-red-800"}>{current.targetCapacityFeasible?"Target mix fits the current timetable.":"Target mix cannot be fully served by the current timetable. Consider more class slots or different product mix."}</p>
+          {Object.keys(current.targetPackageSales).length>0 && <div className="grid gap-1 sm:grid-cols-2">{plan.packages.filter(p=>current.targetPackageSales[p.id]>0).map(p=><p key={p.id}>{p.family} · {p.name}: <strong>+{current.targetPackageSales[p.id]} packages</strong></p>)}</div>}
+          <p className="text-xs text-[#6B6560]">Target quantities use your expected sales mix. With zero forecast sales, priced active packages are weighted equally. These are incremental purchases, not automatically unique members.</p>
+        </div>
+      </Section>
+      <Section title="Monthly seasonality" description="The demand index scales forecast package sales and new-member acquisition. Normal season is the reference point, not an additional multiplication of occupancy.">
+        <div className="grid grid-cols-3 gap-3">{(["off","normal","peak"] as const).map(season=><label className="text-sm" key={season}>{season} demand index %<NumberInput value={plan.seasonDemandPct[season]} onChange={v=>change("seasonDemandPct",{...plan.seasonDemandPct,[season]:Math.min(100,v)})}/></label>)}</div>
+        <p className="text-xs text-[#6B6560]">{["peak","normal","off"].map(season=>`${season}: ${plan.seasonByMonth.filter(x=>x===season).length} months`).join(" · ")}</p>
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{OWN_MONTHS.map((m,i)=><label key={m} className="text-sm">{m}<select className={inputClass} value={plan.seasonByMonth[i]} onChange={e=>change("seasonByMonth",plan.seasonByMonth.map((x,j)=>j===i?e.target.value as "off"|"normal"|"peak":x))}>{["off","normal","peak"].map(s=><option value={s} key={s}>{s}</option>)}</select></label>)}</div>
+      </Section>
+    </>}
+    {mode==="schedule" && <>
+      <Section title="Capacity and staffing" description="A Pilates private reserves all five reformers; strength is constrained by the trainer, not equipment. Trainers may run one session each at a time.">
+        <div className="grid gap-3 sm:grid-cols-4">{([["reformers","Reformers"],["strengthGroupLimit","Strength group seats"],["pilatesTrainers","Pilates trainers"],["strengthTrainers","Strength trainers"]] as const).map(([key,title])=><label key={key} className="text-sm">{title}<NumberInput min={1} value={plan[key]} onChange={v=>change(key,Math.round(v))}/></label>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2">{([ ["pilatesTrainerMonthlySalary","Monthly salary per Pilates trainer"],["strengthTrainerMonthlySalary","Monthly salary per strength trainer"] ] as const).map(([key,title])=><label key={key} className="text-sm">{title}<NumberInput value={plan[key]} onChange={v=>change(key,v)}/></label>)}</div>
+        <p className="text-xs text-[#6B6560]">When both salary inputs are zero, the existing instructor payroll assumption is retained. Once either salary is set, the two headcounts and salaries determine total trainer payroll.</p>
+        <div className="grid gap-3 sm:grid-cols-2">{([["privatePilatesPayout","Private Pilates payout / attended session"],["privateStrengthPayout","Private Strength payout / attended session"]] as const).map(([key,title])=><label key={key} className="text-sm">{title}<NumberInput value={plan[key]} onChange={v=>change(key,v)}/></label>)}</div>
+      </Section>
+      <Section title="Weekly recurring timetable" description="Every slot repeats weekly. Add private slots explicitly; classes never share a trainer. Concurrent private Pilates and group Pilates are prohibited.">
+        <div className="space-y-2">{plan.schedule.map(entry=><div key={entry.id} className="grid grid-cols-2 items-end gap-2 md:grid-cols-[100px_110px_130px_1fr_70px_80px]"><label className="text-xs">Day<select className={inputClass} value={entry.day} onChange={e=>updateSchedule(entry.id,{day:e.target.value as typeof entry.day})}>{OWN_DAYS.map(d=><option key={d}>{d}</option>)}</select></label><label className="text-xs">Start<input className={inputClass} type="time" value={entry.startTime} onChange={e=>updateSchedule(entry.id,{startTime:e.target.value})}/></label><label className="text-xs">Duration, min<NumberInput min={15} value={entry.durationMinutes} onChange={v=>updateSchedule(entry.id,{durationMinutes:Math.round(v)})}/></label><label className="text-xs">Service<select className={inputClass} value={entry.service} onChange={e=>updateSchedule(entry.id,{service:e.target.value as typeof entry.service})}>{OWN_SERVICES.map(s=><option key={s} value={s}>{label[s]}</option>)}</select></label><label className="text-xs">Active<input type="checkbox" className="block mt-3" checked={entry.active} onChange={e=>updateSchedule(entry.id,{active:e.target.checked})}/></label><button className={buttonClass} onClick={()=>change("schedule",plan.schedule.filter(s=>s.id!==entry.id))}>Remove</button></div>)}</div>
+        <button className={buttonClass} onClick={()=>change("schedule",[...plan.schedule,{id:newid(),day:"mon",startTime:"07:00",durationMinutes:60,service:"group_pilates",active:true}])}>+ Add weekly slot</button>
+        {conflicts.length>0 && <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">{conflicts.map((c,i)=><p key={i}>{c}</p>)}</div>}
+        <div className="grid gap-3 sm:grid-cols-2">{OWN_SERVICES.map(service=><div key={service} className="rounded-lg border p-3 text-sm"><strong>{label[service]}</strong><p>Monthly capacity: {number(current.capacity[service])} · Forecast demand: {number(current.demand[service])}</p></div>)}</div>
+      </Section>
+    </>}
+    {mode==="revenue" && <Section title="Other revenue streams" description="Monthly quantity × price. Direct cost per booking is included in contribution. Studio bookings reduce monthly capacity by estimated blocked hours. Exact time conflicts require a dated booking schedule.">
+      <div className="space-y-4">{plan.otherRevenue.map(r=><div key={r.id} className="rounded-lg border border-[#E8E2D9] p-3 space-y-3"><div className="flex gap-2 items-center"><div className="flex-1"><StringInput value={r.name} onChange={v=>updateRevenue(r.id,{name:v})}/></div><label className="text-xs">Active <input type="checkbox" checked={r.active} onChange={e=>updateRevenue(r.id,{active:e.target.checked})}/></label><button className={buttonClass} onClick={()=>change("otherRevenue",plan.otherRevenue.filter(x=>x.id!==r.id))}>Remove</button></div><div className="grid gap-3 sm:grid-cols-3"><label className="text-xs">Price per booking<NumberInput value={r.unitPrice} onChange={v=>updateRevenue(r.id,{unitPrice:v})}/></label><label className="text-xs">Direct cost / booking<NumberInput value={r.variableCostPerUnit} onChange={v=>updateRevenue(r.id,{variableCostPerUnit:v})}/></label><label className="text-xs">Studio hours / booking<NumberInput step={0.5} value={r.studioHoursPerUnit} onChange={v=>updateRevenue(r.id,{studioHoursPerUnit:v})}/></label><label className="text-xs">Blocks studio area<select className={inputClass} value={r.resource} onChange={e=>updateRevenue(r.id,{resource:e.target.value as typeof r.resource})}>{["none","pilates","strength","both"].map(x=><option key={x} value={x}>{x}</option>)}</select></label></div><div className="grid grid-cols-4 gap-2 md:grid-cols-12">{OWN_MONTHS.map((m,i)=><label className="text-xs" key={m}>{m}<NumberInput value={r.monthlyUnits[i]} onChange={v=>updateRevenue(r.id,{monthlyUnits:r.monthlyUnits.map((x,j)=>j===i?v:x)})}/></label>)}</div></div>)}</div>
+      <button className={buttonClass} onClick={()=>change("otherRevenue",[...plan.otherRevenue,{id:newid(),name:"New revenue stream",unitPrice:0,monthlyUnits:Array(12).fill(0),variableCostPerUnit:0,studioHoursPerUnit:0,resource:"none",active:true}])}>+ Add revenue stream</button>
+    </Section>}
+    {mode==="capital" && <Section title="Funding contributions" description="Contributions fund the setup but are not sales revenue or EBITDA. Working capital is already configured in the existing financing assumptions.">
+      {plan.contributions.map(c=><div key={c.id} className="grid grid-cols-[1fr_160px_75px] gap-2"><StringInput value={c.name} onChange={v=>change("contributions",plan.contributions.map(x=>x.id===c.id?{...x,name:v}:x))}/><NumberInput value={c.amount} onChange={v=>change("contributions",plan.contributions.map(x=>x.id===c.id?{...x,amount:v}:x))}/><button className={buttonClass} onClick={()=>change("contributions",plan.contributions.filter(x=>x.id!==c.id))}>Remove</button></div>)}
+      <button className={buttonClass} onClick={()=>change("contributions",[...plan.contributions,{id:newid(),name:"New contributor",amount:0}])}>+ Add contributor</button>
+      <p className="text-sm">Total contributions: <strong>{money(ownFundingTotal(plan))}</strong>. Setup investment plus existing working capital: <strong>{money(financials.summary.launchInvestment.toNumber())}</strong>. Funding difference: <strong>{money(ownFundingTotal(plan)-financials.summary.launchInvestment.toNumber())}</strong>.</p>
+      <p className="text-xs text-[#6B6560]">When OWN mode is active, contributor totals automatically replace the founder-equity input for financing calculations. Contributions are never counted as operating revenue. Existing working capital is not duplicated.</p>
+    </Section>}
+    <Section title="12-month operating forecast" description="Package and other sales are reconciled with the central P&L when OWN mode is active. Capacity alerts are based on the editable recurring timetable.">
+      <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-left text-xs"><thead><tr className="border-b">{["Month","Season","Sales","Other","Total revenue","Target gap","Packages","Active members","EBITDA","Net profit","Session capacity"].map(h=><th className="px-2 py-2" key={h}>{h}</th>)}</tr></thead><tbody>{result.map((r,i)=><tr key={r.month} className={"border-b "+(month===i?"bg-[#FAF8F5]":"")} onClick={()=>setMonth(i)}><td className="p-2">{OWN_MONTHS[i]}</td><td>{r.season}</td><td>{money(r.productRevenue)}</td><td>{money(r.otherRevenue)}</td><td>{money(r.totalRevenue)}</td><td>{money(r.revenueGap)}</td><td>{number(r.packageSales)}</td><td>{number(r.membersEnd)}</td><td>{plan.enabled && financials.monthlyProjection[i]?money(financials.monthlyProjection[i].pl.ebitda.toNumber()):"Activate plan"}</td><td>{plan.enabled && financials.monthlyProjection[i]?money(financials.monthlyProjection[i].pl.netProfit.toNumber()):"—"}</td><td className={r.capacityFeasible?"text-emerald-700":"text-red-700"}>{r.capacityFeasible?"Within limits":"Over capacity"}</td></tr>)}</tbody></table></div>
+    </Section>
+  </div>;
+}

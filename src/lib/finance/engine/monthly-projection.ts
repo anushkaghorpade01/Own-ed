@@ -40,7 +40,7 @@ export function computeMonthSnapshot(
 
   if (isPreOpeningMonth(baseAssumptions, month)) {
     const occupancy = new Decimal(0);
-    const capacity = calculateCapacity(monthAssumptions, occupancy);
+    const capacity = calculateCapacity(monthAssumptions, occupancy, month);
     const revenue = createPreOpeningRevenueResult(monthAssumptions);
     const directCosts = calculateDirectCosts(
       monthAssumptions,
@@ -69,16 +69,18 @@ export function computeMonthSnapshot(
   }
 
   const occupancy = getRampUpOccupancy(baseAssumptions, month);
-  const capacity = calculateCapacity(monthAssumptions, occupancy);
+  const capacity = calculateCapacity(monthAssumptions, occupancy, month);
   const classesPerMonth = capacity.weeklyClasses.times(WEEKS_PER_MONTH);
   const revenue = calculateRevenue(monthAssumptions, capacity.occupiedSeatsMonthly, {
     bookedOccupancyPct: occupancy.times(100).toNumber(),
+    month,
   });
   const directCosts = calculateDirectCosts(
     monthAssumptions,
     capacity.attendedSeatsMonthly,
     classesPerMonth,
-    revenue.grossCustomerBillings
+    revenue.grossCustomerBillings,
+    month
   );
   const operatingExpenses = calculateOperatingExpenses(monthAssumptions, classesPerMonth);
   const pl = calculatePL(monthAssumptions, revenue, directCosts, operatingExpenses);
