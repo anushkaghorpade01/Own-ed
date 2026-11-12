@@ -282,9 +282,17 @@ export default function AssumptionsPage() {
           searchKeywords={SEARCH_INDEX.find((s) => s.title === "Occupancy / Demand")!.keywords}
           {...sectionSearch}
           committed={{
-            ...pickNumericFields(a, [...OCCUPANCY_KEYS]),
-            attendedOccupancyMode: a.attendedOccupancyMode ?? "linked",
-          }}
+           
+committed={{
+  projectedBookedOccupancyPct: a.projectedBookedOccupancyPct,
+  projectedAttendedOccupancyPct: a.projectedAttendedOccupancyPct,
+  peakOccupancyPct: a.peakOccupancyPct,
+  offPeakOccupancyPct: a.offPeakOccupancyPct,
+  cancellationRatePct: a.cancellationRatePct,
+  noShowRatePct: a.noShowRatePct,
+  attendedOccupancyMode: a.attendedOccupancyMode ?? "linked",
+}}
+
           onSave={(draft) => {
             const linked = draft.attendedOccupancyMode !== "manual";
             const attended = linked
@@ -801,10 +809,14 @@ type OccupancyDraft = {
 function AttendedOccupancyMode() {
   const { draft, patch } = useSectionContext<OccupancyDraft>();
   const linked = draft.attendedOccupancyMode !== "manual";
-  const implied = Math.min(
-    draft.projectedBookedOccupancyPct,
-    draft.projectedBookedOccupancyPct * bookedToAttendedYield(draft as OccupancyDraft & { attendedOccupancyMode: "linked" })
-  );
+
+const implied = Math.min(
+  draft.projectedBookedOccupancyPct,
+  draft.projectedBookedOccupancyPct *
+    (1 - draft.cancellationRatePct / 100) *
+    (1 - draft.noShowRatePct / 100)
+);
+
 
   return (
     <div className="mt-4">
