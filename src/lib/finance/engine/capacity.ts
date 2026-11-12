@@ -2,6 +2,7 @@ import { d, WEEKS_PER_MONTH, trace, type CalculationTrace } from "../decimal";
 import type { FinanceAssumptions, ClassScheduleEntry } from "../schemas";
 import Decimal from "decimal.js";
 import { resolveAttendedOccupancyPct } from "./attended-occupancy";
+import { weeklyCapacity, forecastOwnPlan } from "./own-operating-plan";
 
 export interface CapacityResult {
   weeklyAvailableSeats: Decimal;
@@ -36,7 +37,8 @@ const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 export function calculateCapacity(
   assumptions: FinanceAssumptions,
-  occupancyOverride?: Decimal
+  occupancyOverride?: Decimal,
+  month = 1
 ): CapacityResult {
   const usableWeeks = d(52).minus(assumptions.weeksClosedPerYear);
 
@@ -44,7 +46,12 @@ export function calculateCapacity(
   let weeklyClasses: Decimal;
   let weeklyTrace: CalculationTrace;
 
-  if (assumptions.useScheduleForCapacity && assumptions.schedule.length > 0) {
+  if (assumptions.ownOperatingPlan?.enabled && assumptions.ownOperatingPlan.schedule.length > 0) {
+    const weekly = weeklyCapacity(assumptions.ownOperatingPlan);
+    weeklyAvailableSeats = d(Object.values(weekly).reduce((a,b)=>a+b,0));
+    weeklyClasses = d(assumptions.ownOperatingPlan.schedule.filter(s=>s.active).length);
+    weeklyTrace = trace("OWN scheduled weekly seats", "Group seats plus individual private slots", "seats/week", [], weeklyAvailableSeats);
+  } else if (assumptions.useScheduleForCapacity && assumptions.schedule.length > 0) {
     weeklyAvailableSeats = assumptions.schedule.reduce(
       (acc, entry) => acc.plus(entry.capacity),
       new Decimal(0)
@@ -107,7 +114,12 @@ export function calculateCapacity(
     );
   }
 
-  const monthlyAvailableSeats = weeklyAvailableSeats.times(WEEKS_PER_MONTH);
+  const ownMonth = assumptions.ownOperatingPlan?.enabled
+    ? forecastOwnPlan(assumptions.ownOperatingPlan, assumptions.weeksClosedPerYear, month)[month - 1]
+    : null;
+  const monthlyAvailableSeats = ownMonth
+    ? d(Object.values(ownMonth.capacity).reduce((a, b) => a + b, 0))
+    : weeklyAvailableSeats.times(WEEKS_PER_MONTH);
   const monthlyTrace = trace(
     "Monthly available seats",
     "weekly seats × 52 / 12",
@@ -132,7 +144,10 @@ export function calculateCapacity(
     monthlyAvailableSeats
   );
 
-  const annualAvailableSeats = weeklyAvailableSeats.times(usableWeeks);
+  const annualAvailableSeats = ownMonth && assumptions.ownOperatingPlan
+    ? d(forecastOwnPlan(assumptions.ownOperatingPlan, assumptions.weeksClosedPerYear)
+        .reduce((total, m) => total + Object.values(m.capacity).reduce((a,b)=>a+b,0), 0))
+    : weeklyAvailableSeats.times(usableWeeks);
 
   const occupancyPct =
     occupancyOverride ?? d(assumptions.projectedBookedOccupancyPct).dividedBy(100);
@@ -143,8 +158,11 @@ export function calculateCapacity(
   );
   const attendedPct = d(attendedOccupancyPct).dividedBy(100);
 
-  const occupiedSeatsMonthly = monthlyAvailableSeats.times(occupancyPct);
-  const attendedSeatsMonthly = monthlyAvailableSeats.times(attendedPct);
+  // OWN package demand is measured in service visits, not the legacy booked
+  // reformer occupancy input. These values must reconcile with the timetable.
+  const ownDemand = ownMonth ? d(Object.values(ownMonth.demand).reduce((a, b) => a + b, 0)) : null;
+  const occupiedSeatsMonthly = ownDemand ?? monthlyAvailableSeats.times(occupancyPct);
+  const attendedSeatsMonthly = ownDemand ?? monthlyAvailableSeats.times(attendedPct);
 
   const occupiedTrace = trace(
     "Monthly occupied seats",
@@ -170,7 +188,7 @@ export function calculateCapacity(
     occupiedSeatsMonthly
   );
 
-  const slotCapacity = buildSlotCapacity(assumptions);
+  const slotCapacity = ownMonth ? [] : buildSlotCapacity(assumptions);
 
   return {
     weeklyAvailableSeats,
