@@ -21,6 +21,24 @@ export function resolveScenarioAssumptionsForAnalysis(
   scenario: Scenario,
   liveAssumptions: FinanceAssumptions
 ): FinanceAssumptions {
-  if (!scenario.isBaseCase) return scenario.assumptions;
+  if (!scenario.isBaseCase) {
+    const assumptions = scenario.assumptions;
+    // Pre-OWN scenarios have a legacy credit catalogue. In OWN mode carry the
+    // live product/schedule plan into each scenario, and apply its occupancy
+    // change as a relative demand change to expected package purchases.
+    const basePlan = liveAssumptions.ownOperatingPlan;
+    if (!basePlan?.enabled) return assumptions;
+    const scenarioPlan = assumptions.ownOperatingPlan?.enabled ? assumptions.ownOperatingPlan : basePlan;
+    const baseOccupancy = Math.max(1, liveAssumptions.projectedBookedOccupancyPct);
+    const demandScale = Math.max(0, assumptions.projectedBookedOccupancyPct / baseOccupancy);
+    return {
+      ...assumptions,
+      ownOperatingPlan: {
+        ...scenarioPlan,
+        packages: scenarioPlan.packages.map(p => ({...p, expectedSalesPerMonth: p.expectedSalesPerMonth * demandScale})),
+        newMembersPerMonth: Math.round(scenarioPlan.newMembersPerMonth * demandScale),
+      },
+    };
+  }
   return resolveBaseAssumptionsForAnalysis(liveAssumptions, scenario);
 }

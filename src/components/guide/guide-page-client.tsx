@@ -111,19 +111,12 @@ function SidebarNav({
 
 export function GuidePageClient() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GuideSearchResult[]>([]);
+  const results: GuideSearchResult[] = query.trim() ? searchGuide(query) : [];
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
   const [focusedSection, setFocusedSection] = useState<string | null>(null);
   const mainRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-    setResults(searchGuide(query));
-  }, [query]);
 
   // Hash navigation on load and hash change
   useEffect(() => {
@@ -164,7 +157,6 @@ export function GuidePageClient() {
 
   const handleResultClick = useCallback((id: string) => {
     setQuery("");
-    setResults([]);
     setFocusedSection(id);
     window.history.pushState(null, "", `#${id}`);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });

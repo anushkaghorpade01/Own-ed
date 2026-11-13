@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect -- Existing state synchronization; requires a separate behavioral refactor. */
+
 import { useCallback, useEffect, useState } from "react";
 import type { PendingWrite, SyncStatus } from "../types";
 

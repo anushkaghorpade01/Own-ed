@@ -27,19 +27,11 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const grouped = useMemo(() => groupSearchResults(results), [results]);
   const flatResults = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
-  useEffect(() => {
-    if (!open) {
-      setQuery("");
-      setActiveIndex(0);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
 
   const navigate = useCallback(
     (result: GlobalSearchResult) => {
+      setQuery("");
+      setActiveIndex(0);
       onOpenChange(false);
       router.push(result.href);
     },
@@ -85,7 +77,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
           <input
             autoFocus
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
             placeholder="Search pages, assumptions, guide, dictionary…"
             className="flex-1 bg-transparent text-sm text-[#2C2825] outline-none placeholder:text-[#A39E98]"
           />
@@ -109,7 +101,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
                   <button
                     key={term}
                     type="button"
-                    onClick={() => setQuery(term)}
+                    onClick={() => { setQuery(term); setActiveIndex(0); }}
                     className="rounded-full border border-[#E0DAD2] bg-white px-3 py-1 text-xs text-[#2C2825] hover:border-[#C4A882]/50"
                   >
                     {term}

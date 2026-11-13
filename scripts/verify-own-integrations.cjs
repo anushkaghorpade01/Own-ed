@@ -1,0 +1,65 @@
+/* Dependency-free OWN integration and sensitivity smoke tests. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const Module = require('node:module');
+let ts; try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'); }
+const root = path.join(__dirname, '..');
+const source = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+const filename = path.join(root, 'src/lib/finance/engine/own-operating-plan.ts');
+const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+const mod = new Module(filename, module); mod.filename=filename;mod.paths=module.paths;mod._compile(code,filename);
+const { initialOwnPlan, forecastOwnPlan, scheduleConflicts, ownFundingTotal } = mod.exports;
+let checks=0;
+const test = (name, fn) => {fn();checks++;};
+const sample = () => {const p=initialOwnPlan();p.schedule=[{id:'gp',day:'mon',startTime:'07:00',durationMinutes:60,service:'group_pilates',active:true},{id:'gs',day:'mon',startTime:'07:00',durationMinutes:60,service:'group_strength',active:true},{id:'pp',day:'tue',startTime:'07:00',durationMinutes:60,service:'private_pilates',active:true},{id:'ps',day:'wed',startTime:'07:00',durationMinutes:60,service:'private_strength',active:true}];return p;};
+const fore=(p)=>forecastOwnPlan(p);
+const sku=(p,id)=>p.packages.find(x=>x.id===id);
+const change=(p,id,patch)=>Object.assign(sku(p,id),patch);
+for(const id of ['own-pilates-drop','own-pilates-8','own-pilates-16','own-complete-12','own-strength-8','own-strength-16','own-private-pilates-8','own-private-pilates-12','own-private-strength-8','own-private-strength-12']) test('contains '+id,()=>assert(sku(sample(),id)));
+test('reformer group exactly 5',()=>{const p=sample();assert(Math.abs(fore(p)[0].capacity.group_pilates-5*52/12)<1e-9);});
+test('strength group exactly 6',()=>{const p=sample();assert(Math.abs(fore(p)[0].capacity.group_strength-6*52/12)<1e-9);});
+test('private Pilates one weekly session',()=>{const p=sample();assert.equal(fore(p)[0].capacity.private_pilates,52/12);});
+test('private strength one weekly session',()=>{const p=sample();assert.equal(fore(p)[0].capacity.private_strength,52/12);});
+test('simultaneous different disciplines allowed',()=>assert.deepEqual(scheduleConflicts(sample()),[]));
+test('overlap blocks Pilates studio even with two trainers',()=>{const p=sample();p.pilatesTrainers=2;p.schedule.push({id:'gp2',day:'mon',startTime:'07:30',durationMinutes:60,service:'group_pilates',active:true});assert(scheduleConflicts(p).some(x=>x.includes('studio')));});
+test('private Pilates blocks group with two trainers',()=>{const p=sample();p.pilatesTrainers=2;p.schedule.push({id:'pp2',day:'mon',startTime:'07:30',durationMinutes:60,service:'private_pilates',active:true});assert(scheduleConflicts(p).some(x=>x.includes('private Pilates')));});
+test('overlap blocks one strength trainer',()=>{const p=sample();p.schedule.push({id:'ps2',day:'mon',startTime:'07:30',durationMinutes:60,service:'private_strength',active:true});assert(scheduleConflicts(p).some(x=>x.includes('strength trainers')));});
+test('two strength trainers allow one private and one group',()=>{const p=sample();p.strengthTrainers=2;p.schedule.push({id:'ps2',day:'mon',startTime:'07:30',durationMinutes:60,service:'private_strength',active:true});assert.deepEqual(scheduleConflicts(p),[]);});
+test('three overlapping strength sessions block two trainers',()=>{const p=sample();p.strengthTrainers=2;for(let i=0;i<2;i++)p.schedule.push({id:'s'+i,day:'mon',startTime:'07:30',durationMinutes:60,service:'private_strength',active:true});assert(scheduleConflicts(p).length>0);});
+test('inactive class does not cause conflicts',()=>{const p=sample();p.schedule.push({id:'inactive',day:'mon',startTime:'07:00',durationMinutes:60,service:'group_pilates',active:false});assert.deepEqual(scheduleConflicts(p),[]);});
+test('classes crossing midnight flagged',()=>{const p=sample();p.schedule.push({id:'late',day:'fri',startTime:'23:30',durationMinutes:60,service:'group_strength',active:true});assert(scheduleConflicts(p).some(x=>x.includes('midnight')));});
+test('one-month package consumed in one month',()=>{const p=sample();change(p,'own-pilates-8',{expectedSalesPerMonth:1});assert.equal(fore(p)[0].demand.group_pilates,8*.9);});
+test('two-month package consumed in both months',()=>{const p=sample();change(p,'own-pilates-16',{expectedSalesPerMonth:1});const f=fore(p);assert.equal(f[0].demand.group_pilates,16*.9/2);assert.equal(f[1].demand.group_pilates,16*.9);});
+test('OWN Complete splits 8 Pilates and 4 strength',()=>{const p=sample();change(p,'own-complete-12',{expectedSalesPerMonth:1});const f=fore(p);assert.equal(f[0].demand.group_pilates,8*.9/2);assert.equal(f[0].demand.group_strength,4*.9/2);});
+test('other revenue does not create membership sales',()=>{const p=sample();p.otherRevenue[0].unitPrice=2000;p.otherRevenue[0].monthlyUnits[0]=3;const f=fore(p)[0];assert.equal(f.totalRevenue,6000);assert.equal(f.packageSales,0);});
+test('additional revenue variable costs reduce contribution',()=>{const p=sample();p.otherRevenue[0].unitPrice=2000;p.otherRevenue[0].variableCostPerUnit=500;p.otherRevenue[0].monthlyUnits[0]=3;assert.equal(fore(p)[0].contribution,4500);});
+test('space bookings constrain available studio hours',()=>{const p=sample();p.otherRevenue[0].monthlyUnits[0]=2;p.otherRevenue[0].studioHoursPerUnit=1;p.otherRevenue[0].resource='pilates';assert(fore(p)[0].capacity.group_pilates < fore(sample())[0].capacity.group_pilates);assert.equal(fore(p)[0].capacity.group_strength,fore(sample())[0].capacity.group_strength);});
+test('increased Pilates private payout reduces contribution',()=>{const p=sample();change(p,'own-private-pilates-8',{expectedSalesPerMonth:1,price:10000});const a=fore(p)[0].contribution;p.privatePilatesPayout=100;assert(fore(p)[0].contribution<a);});
+test('strength private payout independent',()=>{const p=sample();change(p,'own-private-strength-8',{expectedSalesPerMonth:1,price:10000});const a=fore(p)[0].contribution;p.privateStrengthPayout=100;assert(fore(p)[0].contribution<a);});
+test('reducing usage improves capacity feasibility',()=>{const p=sample();change(p,'own-pilates-8',{expectedSalesPerMonth:10});assert.equal(fore(p)[0].capacityFeasible,false);p.expectedUsagePct=0;assert.equal(fore(p)[0].capacityFeasible,true);});
+test('adding classes increases capacity',()=>{const p=sample();const prior=fore(p)[0].capacity.group_pilates;p.schedule.push({id:'more',day:'thu',startTime:'07:00',durationMinutes:60,service:'group_pilates',active:true});assert(fore(p)[0].capacity.group_pilates>prior);});
+test('seasonal indices affect planned package sales',()=>{const p=sample();change(p,'own-pilates-8',{expectedSalesPerMonth:3,price:1000});const a=fore(p)[0].productRevenue;p.seasonByMonth[0]='off';assert(fore(p)[0].productRevenue<a);});
+test('monthly units affect only selected month',()=>{const p=sample();p.otherRevenue[0].unitPrice=1000;p.otherRevenue[0].monthlyUnits[3]=4;const f=fore(p);assert.equal(f[3].otherRevenue,4000);assert.equal(f[2].otherRevenue,0);});
+test('changing monthly revenue targets changes incremental package quantities',()=>{const p=sample();change(p,'own-pilates-8',{expectedSalesPerMonth:1,price:1000});p.targetRevenueByMonth[0]=10000;const a=fore(p)[0];p.targetRevenueByMonth[0]=20000;assert(fore(p)[0].additionalPackagesRequired>a.additionalPackagesRequired);});
+test('target solver works with zero forecast sales but priced products',()=>{const p=sample();change(p,'own-pilates-8',{price:1000});p.targetRevenueByMonth[0]=10000;const a=fore(p)[0];assert(a.additionalPackagesRequired>0);assert(Object.values(a.targetPackageSales).reduce((x,y)=>x+y,0)>0);});
+test('target solver covers full gap after rounding',()=>{const p=sample();change(p,'own-pilates-8',{price:3000,expectedSalesPerMonth:2});change(p,'own-pilates-16',{price:7000,expectedSalesPerMonth:2});p.targetRevenueByMonth[0]=123456;const a=fore(p)[0];const earned=p.packages.reduce((sum,sku)=>sum+(a.targetPackageSales[sku.id]||0)*sku.price,0);assert(earned >= a.revenueGap);});
+test('target capacity warns about unrealizable sales',()=>{const p=sample();change(p,'own-pilates-8',{price:1000});p.targetRevenueByMonth[0]=1000000;assert.equal(fore(p)[0].targetCapacityFeasible,false);});
+test('churn increases additional acquisition requirement',()=>{const p=sample();p.openingActiveMembers=12;p.renewalPurchasePct=100;p.newMembersPerMonth=0;change(p,'own-pilates-8',{price:1000,expectedSalesPerMonth:10});p.targetRevenueByMonth[0]=10000;p.churnPct=0;const a=fore(p)[0];p.churnPct=50;assert(fore(p)[0].additionalNewMembersRequired>a.additionalNewMembersRequired);});
+test('new members reduce acquisition shortfall',()=>{const p=sample();p.openingActiveMembers=0;change(p,'own-pilates-8',{price:1000,expectedSalesPerMonth:10});p.targetRevenueByMonth[0]=10000;const a=fore(p)[0];p.newMembersPerMonth=6;assert(fore(p)[0].additionalNewMembersRequired<a.additionalNewMembersRequired);});
+test('contributions add without counted revenue',()=>{const p=sample();p.contributions[0].amount=5;p.contributions[1].amount=7;assert.equal(ownFundingTotal(p),12);assert.equal(fore(p)[0].totalRevenue,0);});
+test('24-month forecast repeats seasonal month calendar',()=>{const p=sample();const f=forecastOwnPlan(p,0,24);assert.equal(f[0].season,f[12].season);});
+test('closed weeks reduce annual capacity',()=>{const p=sample();assert(forecastOwnPlan(p,3)[0].capacity.group_pilates<fore(p)[0].capacity.group_pilates);});
+// Structural integration contracts are checked in addition to pure calculation
+// tests. They cannot replace a dependency-installed runtime test suite.
+test('capacity engine uses monthly OWN service demand',()=>assert(source('src/lib/finance/engine/capacity.ts').includes('const ownDemand = ownMonth')));
+test('monthly P&L resolves OWN month',()=>assert(source('src/lib/finance/engine/monthly-projection.ts').includes('calculateCapacity(monthAssumptions, occupancy, month)')));
+test('OWN direct costs used in central engine',()=>assert(source('src/lib/finance/engine/costs.ts').includes('forecast.demand.private_pilates * plan.privatePilatesPayout')));
+test('OWN sales used in revenue engine',()=>assert(source('src/lib/finance/engine/revenue.ts').includes('forecast.totalRevenue')));
+test('funding contributors use existing financing input',()=>assert(source('src/lib/finance/validation.ts').includes('merged.founderEquity = contributions')));
+test('scenario comparisons scale new package demand',()=>assert(source('src/lib/finance/scenario-helpers.ts').includes('expectedSalesPerMonth: p.expectedSalesPerMonth * demandScale')));
+test('P&L page displays linked forecast',()=>assert(source('src/app/math/own-plan/page.tsx').includes('financials.monthlyProjection[i].pl.ebitda')));
+let files=0, syntaxErrors=[];
+function scan(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())scan(file);else if(/\.tsx?$/.test(file)){const emitted=ts.transpileModule(fs.readFileSync(file,'utf8'),{fileName:file,reportDiagnostics:true,compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.Preserve}});for(const d of emitted.diagnostics||[])if(d.category===ts.DiagnosticCategory.Error)syntaxErrors.push(file+': '+ts.flattenDiagnosticMessageText(d.messageText,' '));files++;}}}
+scan(path.join(root,'src'));test('all TypeScript files parse',()=>assert.deepEqual(syntaxErrors,[]));
+console.log(`PASS: ${checks} targeted OWN integration and sensitivity checks; ${files} TypeScript files parsed`);

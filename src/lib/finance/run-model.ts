@@ -19,7 +19,7 @@ import { calculateBreakEven, calculatePayback } from "./engine/break-even";
 import { calculateAccessProducts } from "./engine/access-products";
 import { validateAssumptions, normalizeAssumptions } from "./validation";
 import { resolveForecastSettings } from "./engine/escalation";
-import { d, WEEKS_PER_MONTH } from "./decimal";
+import { d, WEEKS_PER_MONTH, trace } from "./decimal";
 import type { FinanceAssumptions } from "./schemas";
 import Decimal from "decimal.js";
 
@@ -62,7 +62,7 @@ function computeMonthInternals(
     month !== undefined
       ? normalizeAssumptions(resolveMonthAssumptions(assumptions, month))
       : normalizeAssumptions(assumptions);
-  const capacity = calculateCapacity(base, occupancy);
+  const capacity = calculateCapacity(base, occupancy, month ?? 1);
   const classesPerMonth = capacity.weeklyClasses.times(WEEKS_PER_MONTH);
   const bookedPct =
     month !== undefined
@@ -70,12 +70,14 @@ function computeMonthInternals(
       : base.projectedBookedOccupancyPct;
   const revenue = calculateRevenue(base, capacity.occupiedSeatsMonthly, {
     bookedOccupancyPct: bookedPct,
+    month,
   });
   const directCosts = calculateDirectCosts(
     base,
     capacity.attendedSeatsMonthly,
     classesPerMonth,
-    revenue.grossCustomerBillings
+    revenue.grossCustomerBillings,
+    month
   );
   const operatingExpenses = calculateOperatingExpenses(base, classesPerMonth);
   const pl = calculatePL(base, revenue, directCosts, operatingExpenses);
@@ -149,7 +151,7 @@ export function runFinanceModel(
     }))
   );
 
-  const breakEven = calculateBreakEven(
+  let breakEven = calculateBreakEven(
     safe,
     unitEconomics,
     operatingExpenses,
@@ -159,6 +161,38 @@ export function runFinanceModel(
     cashFlow.operatingCashBreakEvenMonth,
     cashFlow.cumulativeCashBreakEvenMonth
   );
+
+  if (safe.ownOperatingPlan?.enabled) {
+    // For a package-based sales forecast, legacy reformer-only linear
+    // break-even is not valid. Calculate the zero-sales EBITDA intercept,
+    // then solve for the package sales mix needed to cover operating costs.
+    // This includes other revenue, fixed salaries and private payouts.
+    const noSales = {
+      ...safe,
+      ownOperatingPlan: {
+        ...safe.ownOperatingPlan,
+        packages: safe.ownOperatingPlan.packages.map(p => ({...p, expectedSalesPerMonth: 0})),
+      },
+    };
+    const zeroSalesEbitda = computeMonthInternals(noSales, occupancy).pl.ebitda;
+    const incrementalEbitda = pl.ebitda.minus(zeroSalesEbitda);
+    const salesMultiple = zeroSalesEbitda.gte(0) ? d(0)
+      : incrementalEbitda.gt(0) ? zeroSalesEbitda.negated().dividedBy(incrementalEbitda)
+      : new Decimal(Infinity);
+    const requiredSeats = capacity.occupiedSeatsMonthly.times(salesMultiple);
+    const requiredOccupancy = capacity.monthlyAvailableSeats.isZero()
+      ? new Decimal(Infinity)
+      : requiredSeats.dividedBy(capacity.monthlyAvailableSeats).times(100);
+    breakEven = {
+      ...breakEven,
+      contributionBreakEven: {
+        requiredOccupiedSeats: requiredSeats,
+        breakEvenOccupancyPct: requiredOccupancy,
+        trace: trace("OWN sales-mix break-even", "Scale package sales at the current mix until EBITDA reaches zero", "%", [], requiredOccupancy),
+      },
+      ebitdaBreakEvenOccupancyPct: requiredOccupancy,
+    };
+  }
 
   const payback = calculatePayback(
     capex.nonRecoverableCapex,
@@ -215,7 +249,7 @@ export function runFinanceModel(
       monthlyOperatingProfit: pl.ebitda,
       breakEvenOccupancyPct: breakEven.contributionBreakEven.breakEvenOccupancyPct,
       paybackMonths: payback.paybackMonth,
-      reformers: safe.reformers,
+      reformers: safe.ownOperatingPlan?.enabled ? safe.ownOperatingPlan.reformers : safe.reformers,
       weeklyClasses: capacity.weeklyClasses,
       utilisationPct,
     },

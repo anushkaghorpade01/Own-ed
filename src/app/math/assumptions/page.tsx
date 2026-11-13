@@ -36,7 +36,6 @@ import {
   CREDIT_LIABILITY_FIELDS,
 } from "@/lib/finance/assumption-fields";
 import { OCCUPANCY_FIELD_TOOLTIPS } from "@/lib/finance/occupancy-tooltips";
-import { bookedToAttendedYield } from "@/lib/finance/engine/attended-occupancy";
 import { format } from "date-fns";
 import type { CustomExpense } from "@/lib/finance/schemas";
 import { AnnualEscalationSection } from "@/components/finance/annual-escalation-section";
@@ -88,15 +87,6 @@ const STUDIO_KEYS = [
   "operatingDaysPerWeek",
   "classesPerDay",
   "weeksClosedPerYear",
-] as const;
-
-const OCCUPANCY_KEYS = [
-  "projectedBookedOccupancyPct",
-  "projectedAttendedOccupancyPct",
-  "peakOccupancyPct",
-  "offPeakOccupancyPct",
-  "cancellationRatePct",
-  "noShowRatePct",
 ] as const;
 
 const PACK_PRESALE_KEYS = ["rampPackSalesMultiplierCap"] as const;
@@ -282,9 +272,15 @@ export default function AssumptionsPage() {
           searchKeywords={SEARCH_INDEX.find((s) => s.title === "Occupancy / Demand")!.keywords}
           {...sectionSearch}
           committed={{
-            ...pickNumericFields(a, [...OCCUPANCY_KEYS]),
+            projectedBookedOccupancyPct: a.projectedBookedOccupancyPct,
+            projectedAttendedOccupancyPct: a.projectedAttendedOccupancyPct,
+            peakOccupancyPct: a.peakOccupancyPct,
+            offPeakOccupancyPct: a.offPeakOccupancyPct,
+            cancellationRatePct: a.cancellationRatePct,
+            noShowRatePct: a.noShowRatePct,
             attendedOccupancyMode: a.attendedOccupancyMode ?? "linked",
           }}
+
           onSave={(draft) => {
             const linked = draft.attendedOccupancyMode !== "manual";
             const attended = linked
@@ -801,9 +797,12 @@ type OccupancyDraft = {
 function AttendedOccupancyMode() {
   const { draft, patch } = useSectionContext<OccupancyDraft>();
   const linked = draft.attendedOccupancyMode !== "manual";
+
   const implied = Math.min(
     draft.projectedBookedOccupancyPct,
-    draft.projectedBookedOccupancyPct * bookedToAttendedYield(draft as OccupancyDraft & { attendedOccupancyMode: "linked" })
+    draft.projectedBookedOccupancyPct *
+      (1 - draft.cancellationRatePct / 100) *
+      (1 - draft.noShowRatePct / 100)
   );
 
   return (

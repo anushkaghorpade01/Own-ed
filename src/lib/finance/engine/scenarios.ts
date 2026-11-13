@@ -8,6 +8,7 @@ import { runFinanceModel } from "../run-model";
 import { d } from "../decimal";
 import type { FinanceAssumptions, ScenarioTimelinePhase } from "../schemas";
 import Decimal from "decimal.js";
+import { forecastOwnPlan, scheduleConflicts } from "./own-operating-plan";
 
 export const ENGINE_VERSION = "1.0.0";
 export const FORMULA_VERSION = "2026-09-01";
@@ -135,12 +136,14 @@ export function buildScenarioMetrics(
 
   return {
     name: assumptions.name,
-    reformers: assumptions.reformers,
+    reformers: assumptions.ownOperatingPlan?.enabled ? assumptions.ownOperatingPlan.reformers : assumptions.reformers,
     classesPerDay: assumptions.classesPerDay,
     operatingDaysPerWeek: assumptions.operatingDaysPerWeek,
     monthlyAvailableSeats: model.capacity.monthlyAvailableSeats,
     occupiedSeatsMonthly: model.capacity.occupiedSeatsMonthly,
-    occupancyPct: assumptions.projectedBookedOccupancyPct,
+    occupancyPct: assumptions.ownOperatingPlan?.enabled
+      ? model.summary.utilisationPct.toNumber()
+      : assumptions.projectedBookedOccupancyPct,
     peakOccupancyPct: assumptions.peakOccupancyPct,
     avgRealisedRevenuePerCredit:
       model.revenue.weightedRevenue.weightedNetRevenuePerCredit,
@@ -274,6 +277,12 @@ export function detectConstraintWarnings(
   model: FinanceModelOutput
 ): ConstraintWarning[] {
   const warnings: ConstraintWarning[] = [];
+  if (model.assumptions.ownOperatingPlan?.enabled) {
+    const own = model.assumptions.ownOperatingPlan;
+    const forecast = forecastOwnPlan(own, model.assumptions.weeksClosedPerYear);
+    if (scheduleConflicts(own).length) warnings.push({severity:"critical", title:"OWN timetable conflicts", explanation:"The proposed weekly timetable double-books a trainer or Pilates studio."});
+    if (forecast.some(month => !month.capacityFeasible)) warnings.push({severity:"critical", title:"OWN demand exceeds scheduled capacity", explanation:"At least one month exceeds the available Pilates, strength or private-session schedule. Review OWN Operating Plan."});
+  }
   const cl = model.creditLiability;
   const ap = model.accessProducts;
 

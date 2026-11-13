@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricLabel, InfoTooltip } from "@/components/ui/info-tooltip";
 import Link from "next/link";
+import { forecastOwnPlan, OWN_SERVICES, scheduleConflicts } from "@/lib/finance/engine/own-operating-plan";
 import {
   CREDIT_LIABILITY_GUIDE_HREF,
   CREDIT_LIABILITY_GUIDE_LINK_LABEL,
@@ -51,6 +52,26 @@ export default function CapacityPage() {
   const breakageInsight = explainBreakage(model);
   const cl = model.creditLiability;
   const uc = model.unusedCapacity;
+
+  if (model.assumptions.ownOperatingPlan?.enabled) {
+    const plan = model.assumptions.ownOperatingPlan;
+    const forecast = forecastOwnPlan(plan, model.assumptions.weeksClosedPerYear);
+    const month = forecast[0];
+    const issues = scheduleConflicts(plan);
+    const serviceLabels = {group_pilates:"Group Pilates",group_strength:"Group Strength",private_pilates:"Private Pilates",private_strength:"Private Strength"};
+    return <div className="space-y-5">
+      <SectionHeader title="OWN Capacity" description="Scheduled service slots, expected package visits and timetable feasibility (January planning view)." />
+      <MetricGrid>
+        <MetricCard label="Total monthly service slots" value={Object.values(month.capacity).reduce((a,b)=>a+b,0).toFixed(0)} subtitle="Group seats plus individual private slots" />
+        <MetricCard label="Expected visits" value={Object.values(month.demand).reduce((a,b)=>a+b,0).toFixed(0)} subtitle="Expected attendance from active packages" />
+        <MetricCard label="Utilisation" value={formatPercent(model.summary.utilisationPct)} subtitle="Expected visits / available scheduled slots" />
+      </MetricGrid>
+      <div className="grid gap-3 sm:grid-cols-2">{OWN_SERVICES.map(service=><div className="rounded-xl border border-[#E8E2D9] p-4 space-y-2" key={service}><h2 className="font-semibold">{serviceLabels[service]}</h2><p className="text-sm">{month.demand[service].toFixed(1)} visits expected · {month.capacity[service].toFixed(1)} slots available</p><p className={month.demand[service] <= month.capacity[service]?"text-sm text-emerald-700":"text-sm text-red-700"}>{month.demand[service] <= month.capacity[service]?"Within capacity":"Over capacity"}</p></div>)}</div>
+      {issues.length>0 && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{issues.map((issue,i)=><p key={i}>{issue}</p>)}</div>}
+      <p className="text-sm text-[#6B6560]">A private Pilates session reserves the entire five-reformer studio. Strength has no equipment constraint, but every group or private session requires an available strength instructor.</p>
+      <Link className="text-sm underline" href="/math/own-plan">Edit weekly timetable</Link>
+    </div>;
+  }
 
   return (
     <div>

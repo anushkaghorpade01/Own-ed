@@ -1,0 +1,38 @@
+/* Dependency-free smoke and sensitivity tests: run with node scripts/verify-own-plan.cjs */
+const assert = require('node:assert/strict');
+let ts; try { ts = require('typescript'); } catch { ts = require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript'); }
+const fs = require('node:fs');
+const Module = require('node:module');
+const path = require('node:path');
+const filename = path.join(__dirname, '../src/lib/finance/engine/own-operating-plan.ts');
+const source = fs.readFileSync(filename, 'utf8');
+const transpiled = ts.transpileModule(source, {compilerOptions: {module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+const mod = new Module(filename, module); mod.filename = filename; mod.paths = module.paths; mod._compile(transpiled, filename);
+const {initialOwnPlan,forecastOwnPlan,scheduleConflicts,weeklyCapacity,ownFundingTotal} = mod.exports;
+const plan=initialOwnPlan();
+assert.equal(plan.packages.length,10);
+assert.equal(plan.packages.find(p=>p.family==='OWN Complete').sessions.group_strength,4);
+assert.equal(plan.packages.find(p=>p.id==='own-pilates-16').validityMonths,2);
+assert.equal(plan.otherRevenue.length,6);
+assert.equal(plan.reformers,5); assert.equal(plan.strengthGroupLimit,6);
+assert.equal(plan.pilatesTrainers,1); assert.equal(plan.strengthTrainers,1);
+const item=plan.packages.find(p=>p.id==='own-pilates-8');item.price=12000;item.expectedSalesPerMonth=10;
+plan.schedule=[{id:'pilates',day:'mon',startTime:'07:00',durationMinutes:60,service:'group_pilates',active:true},{id:'strength',day:'mon',startTime:'07:00',durationMinutes:60,service:'group_strength',active:true}];
+assert.deepEqual(scheduleConflicts(plan),[]);
+assert.deepEqual(weeklyCapacity(plan),{group_pilates:5,group_strength:6,private_pilates:0,private_strength:0});
+const baseline=forecastOwnPlan(plan);
+assert.equal(baseline[0].totalRevenue,120000);
+const higherPrice=structuredClone(plan);higherPrice.packages.find(p=>p.id===item.id).price=15000;
+assert.equal(forecastOwnPlan(higherPrice)[0].totalRevenue,150000);
+const off=structuredClone(plan);off.seasonByMonth[0]='off';assert(forecastOwnPlan(off)[0].totalRevenue < baseline[0].totalRevenue);
+const target=structuredClone(plan);target.targetRevenueByMonth[0]=900000;assert(forecastOwnPlan(target)[0].additionalPackagesRequired > baseline[0].additionalPackagesRequired);
+const churn=structuredClone(plan);churn.openingActiveMembers=100;churn.churnPct=20;assert.equal(forecastOwnPlan(churn)[0].membersEnd,80);
+const moreSales=structuredClone(plan);moreSales.packages.find(p=>p.id===item.id).expectedSalesPerMonth=20;assert(forecastOwnPlan(moreSales)[0].demand.group_pilates > baseline[0].demand.group_pilates);
+const complete=structuredClone(plan);complete.packages.find(p=>p.id==='own-complete-12').expectedSalesPerMonth=10;assert(forecastOwnPlan(complete)[0].demand.group_strength>0);
+const extra=structuredClone(plan);extra.otherRevenue[0].unitPrice=5000;extra.otherRevenue[0].monthlyUnits[0]=2;extra.otherRevenue[0].variableCostPerUnit=1000;assert.equal(forecastOwnPlan(extra)[0].otherRevenue,10000);assert.equal(forecastOwnPlan(extra)[0].variableCosts,2000);
+const privatePlan=structuredClone(plan);privatePlan.packages.find(p=>p.id==='own-private-pilates-8').expectedSalesPerMonth=2;privatePlan.privatePilatesPayout=500;assert(forecastOwnPlan(privatePlan)[0].variableCosts > baseline[0].variableCosts);
+const collision=structuredClone(plan);collision.schedule.push({id:'private',day:'mon',startTime:'07:00',durationMinutes:60,service:'private_pilates',active:true});assert(scheduleConflicts(collision).length>0);
+const moreTrainers=structuredClone(collision);moreTrainers.pilatesTrainers=2;assert(scheduleConflicts(moreTrainers).some(x=>x.includes('entire studio')));
+plan.contributions[0].amount=100000;plan.contributions[1].amount=250000;assert.equal(ownFundingTotal(plan),350000);
+const year2=forecastOwnPlan(plan,0,24);assert.equal(year2.length,24);assert.equal(year2[12].season,year2[0].season);
+console.log('PASS: 20 OWN plan smoke and sensitivity checks');

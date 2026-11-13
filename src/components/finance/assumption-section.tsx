@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect -- Existing state synchronization; requires a separate behavioral refactor. */
+
 import {
   createContext,
   useCallback,
@@ -64,7 +66,8 @@ export function SectionSaveButton({
         dirty &&
           !saving &&
           "bg-[#2C2825] text-white shadow-md ring-2 ring-[#C4A882]/40 hover:bg-[#1a1714]",
-        saving && "bg-[#2C2825]/90 text-white shadow-inner ring-2 ring-[#C4A882]/30",
+        saving &&
+          "bg-[#2C2825]/90 text-white shadow-inner ring-2 ring-[#C4A882]/30",
         saved &&
           "border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-300 hover:bg-emerald-50",
         !dirty && !saved && !saving && "opacity-60"
@@ -94,16 +97,22 @@ type AssumptionSectionContextValue<T extends Record<string, unknown>> = {
 };
 
 const AssumptionSectionContext =
-  createContext<AssumptionSectionContextValue<Record<string, unknown>> | null>(null);
+  createContext<
+    AssumptionSectionContextValue<Record<string, unknown>> | null
+  >(null);
 
 export function useSectionContext<T extends Record<string, unknown>>() {
   const ctx = useContext(AssumptionSectionContext);
-  if (!ctx) throw new Error("Draft field must be used inside AssumptionSection");
+  if (!ctx) {
+    throw new Error("Draft field must be used inside AssumptionSection");
+  }
   return ctx as AssumptionSectionContextValue<T>;
 }
 
 /** Returns null when used outside AssumptionSection (e.g. standalone preview). */
-export function useSectionContextOptional<T extends Record<string, unknown>>() {
+export function useSectionContextOptional<
+  T extends Record<string, unknown>
+>() {
   const ctx = useContext(AssumptionSectionContext);
   return ctx as AssumptionSectionContextValue<T> | null;
 }
@@ -127,12 +136,19 @@ export function AssumptionSection<T extends Record<string, unknown>>({
   searchQuery?: string;
   children: ReactNode;
 }) {
-  const visible = sectionMatchesSearch(title, searchKeywords, searchQuery);
-  const sectionWideMatch =
-    !normalizeSearchQuery(searchQuery) || textMatchesSearch(title, searchQuery);
-  const forceOpen = normalizeSearchQuery(searchQuery).length > 0;
+  const visible = sectionMatchesSearch(
+    title,
+    searchKeywords,
+    searchQuery
+  );
 
-  if (!visible) return null;
+  const sectionWideMatch =
+    !normalizeSearchQuery(searchQuery) ||
+    textMatchesSearch(title, searchQuery);
+
+  const forceOpen =
+    normalizeSearchQuery(searchQuery).length > 0;
+
   const [draft, setDraft] = useState<T>(committed);
   const [status, setStatus] = useState<SaveStatus>("idle");
 
@@ -143,7 +159,10 @@ export function AssumptionSection<T extends Record<string, unknown>>({
     });
   }, [committed]);
 
-  const dirty = useMemo(() => !stableEqual(draft, committed), [draft, committed]);
+  const dirty = useMemo(
+    () => !stableEqual(draft, committed),
+    [draft, committed]
+  );
 
   const patch = useCallback((partial: Partial<T>) => {
     setDraft((prev) => ({ ...prev, ...partial }));
@@ -152,7 +171,9 @@ export function AssumptionSection<T extends Record<string, unknown>>({
 
   const handleSave = useCallback(() => {
     if (!dirty) return;
+
     setStatus("saving");
+
     window.requestAnimationFrame(() => {
       onSave(draft);
       setStatus("saved");
@@ -161,7 +182,12 @@ export function AssumptionSection<T extends Record<string, unknown>>({
 
   useEffect(() => {
     if (status !== "saved") return;
-    const t = window.setTimeout(() => setStatus("idle"), 2500);
+
+    const t = window.setTimeout(
+      () => setStatus("idle"),
+      2500
+    );
+
     return () => window.clearTimeout(t);
   }, [status]);
 
@@ -170,33 +196,53 @@ export function AssumptionSection<T extends Record<string, unknown>>({
     [draft, patch, dirty, status]
   );
 
+  // All React hooks must execute before any conditional return.
+  if (!visible) return null;
+
   return (
     <CollapsibleSection
       title={title}
       defaultOpen={defaultOpen}
       forceOpen={forceOpen}
       action={
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           {extraAction}
-          <SectionSaveButton dirty={dirty} status={status} onClick={handleSave} />
+          <SectionSaveButton
+            dirty={dirty}
+            status={status}
+            onClick={handleSave}
+          />
         </div>
       }
     >
-      <AssumptionsSearchProvider query={searchQuery} sectionWideMatch={sectionWideMatch}>
+      <AssumptionsSearchProvider
+        query={searchQuery}
+        sectionWideMatch={sectionWideMatch}
+      >
         <AssumptionSectionContext.Provider
-          value={ctx as AssumptionSectionContextValue<Record<string, unknown>>}
+          value={
+            ctx as AssumptionSectionContextValue<
+              Record<string, unknown>
+            >
+          }
         >
           {children}
-        {dirty && (
-          <p className="mt-4 text-body-sm text-amber-900">
-            You have unsaved changes in this section — click <strong>Save changes</strong> above.
-          </p>
-        )}
-        {status === "saved" && (
-          <p className="mt-4 text-body-sm font-medium text-emerald-800">
-            Section saved — model totals have been updated.
-          </p>
-        )}
+
+          {dirty && (
+            <p className="mt-4 text-body-sm text-amber-900">
+              You have unsaved changes in this section — click{" "}
+              <strong>Save changes</strong> above.
+            </p>
+          )}
+
+          {status === "saved" && (
+            <p className="mt-4 text-body-sm font-medium text-emerald-800">
+              Section saved — model totals have been updated.
+            </p>
+          )}
         </AssumptionSectionContext.Provider>
       </AssumptionsSearchProvider>
     </CollapsibleSection>
@@ -225,17 +271,27 @@ export function DraftNumberField<K extends string>({
   max?: number;
 }) {
   const visible = useAssumptionsFieldVisible(label);
+
+  // Hooks must be called before conditional returns.
+  const { draft, patch } =
+    useSectionContext<Record<K, number>>();
+
   if (!visible) return null;
 
-  const { draft, patch } = useSectionContext<Record<K, number>>();
   const value = draft[field] ?? 0;
 
   return (
     <div className="space-y-1">
       <label className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6B6560]">
         <span>{label}</span>
-        {tooltip && <InfoTooltip content={tooltip} label={`About ${label}`} />}
+        {tooltip && (
+          <InfoTooltip
+            content={tooltip}
+            label={`About ${label}`}
+          />
+        )}
       </label>
+
       <div className="flex items-center gap-2">
         <Input
           type="number"
@@ -245,14 +301,31 @@ export function DraftNumberField<K extends string>({
           step={integer ? 1 : "any"}
           onChange={(e) =>
             patch({
-              [field]: parseNumber(e.target.value, { integer, min, max }),
+              [field]: parseNumber(e.target.value, {
+                integer,
+                min,
+                max,
+              }),
             } as Partial<Record<K, number>>)
           }
-          className={cn("max-w-[200px]", inputClassName)}
+          className={cn(
+            "max-w-[200px]",
+            inputClassName
+          )}
         />
-        {suffix && <span className="text-xs text-[#A39E98]">{suffix}</span>}
+
+        {suffix && (
+          <span className="text-xs text-[#A39E98]">
+            {suffix}
+          </span>
+        )}
       </div>
-      {help && <p className="text-[10px] text-[#A39E98]">{help}</p>}
+
+      {help && (
+        <p className="text-[10px] text-[#A39E98]">
+          {help}
+        </p>
+      )}
     </div>
   );
 }
@@ -267,9 +340,13 @@ export function DraftCheckboxField<K extends string>({
   id: string;
 }) {
   const visible = useAssumptionsFieldVisible(label);
+
+  // Hooks must execute even when the field is hidden.
+  const { draft, patch } =
+    useSectionContext<Record<K, boolean>>();
+
   if (!visible) return null;
 
-  const { draft, patch } = useSectionContext<Record<K, boolean>>();
   const checked = Boolean(draft[field]);
 
   return (
@@ -279,11 +356,17 @@ export function DraftCheckboxField<K extends string>({
         id={id}
         checked={checked}
         onChange={(e) =>
-          patch({ [field]: e.target.checked } as Partial<Record<K, boolean>>)
+          patch({
+            [field]: e.target.checked,
+          } as Partial<Record<K, boolean>>)
         }
         className="mt-0.5"
       />
-      <label htmlFor={id} className="text-xs text-[#6B6560]">
+
+      <label
+        htmlFor={id}
+        className="text-xs text-[#6B6560]"
+      >
         {label}
       </label>
     </div>
@@ -298,20 +381,32 @@ export function DraftDateField<K extends string>({
   label: string;
 }) {
   const visible = useAssumptionsFieldVisible(label);
+
+  // Keep hook execution unconditional.
+  const { draft, patch } =
+    useSectionContext<Record<K, string>>();
+
   if (!visible) return null;
 
-  const { draft, patch } = useSectionContext<Record<K, string>>();
   const raw = draft[field] ?? "";
-  const value = typeof raw === "string" ? raw.slice(0, 10) : "";
+  const value =
+    typeof raw === "string"
+      ? raw.slice(0, 10)
+      : "";
 
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-[#6B6560]">{label}</label>
+      <label className="text-xs font-medium text-[#6B6560]">
+        {label}
+      </label>
+
       <Input
         type="date"
         value={value}
         onChange={(e) =>
-          patch({ [field]: e.target.value } as Partial<Record<K, string>>)
+          patch({
+            [field]: e.target.value,
+          } as Partial<Record<K, string>>)
         }
         className="max-w-[200px]"
       />
@@ -319,7 +414,11 @@ export function DraftDateField<K extends string>({
   );
 }
 
-export type CustomExpenseDraft = { id: string; name: string; amount: number };
+export type CustomExpenseDraft = {
+  id: string;
+  name: string;
+  amount: number;
+};
 
 export function DraftCustomExpenseRow<K extends string>({
   field,
@@ -328,14 +427,29 @@ export function DraftCustomExpenseRow<K extends string>({
   field: K;
   expenseId: string;
 }) {
-  const { draft, patch } = useSectionContext<Record<K, CustomExpenseDraft[]>>();
-  const items = (draft[field] ?? []) as CustomExpenseDraft[];
-  const item = items.find((e) => e.id === expenseId);
+  const { draft, patch } =
+    useSectionContext<
+      Record<K, CustomExpenseDraft[]>
+    >();
+
+  const items =
+    (draft[field] ?? []) as CustomExpenseDraft[];
+
+  const item = items.find(
+    (e) => e.id === expenseId
+  );
+
   if (!item) return null;
 
-  const update = (updates: Partial<CustomExpenseDraft>) => {
+  const update = (
+    updates: Partial<CustomExpenseDraft>
+  ) => {
     patch({
-      [field]: items.map((e) => (e.id === expenseId ? { ...e, ...updates } : e)),
+      [field]: items.map((e) =>
+        e.id === expenseId
+          ? { ...e, ...updates }
+          : e
+      ),
     } as Partial<Record<K, CustomExpenseDraft[]>>);
   };
 
@@ -346,19 +460,29 @@ export function DraftCustomExpenseRow<K extends string>({
           type="text"
           value={item.name}
           placeholder="Expense name"
-          onChange={(e) => update({ name: e.target.value })}
+          onChange={(e) =>
+            update({ name: e.target.value })
+          }
           className="max-w-[180px]"
         />
       </div>
+
       <div className="space-y-1">
         <Input
           type="number"
           value={item.amount}
-          onChange={(e) => update({ amount: parseNumber(e.target.value) })}
+          onChange={(e) =>
+            update({
+              amount: parseNumber(e.target.value),
+            })
+          }
           className="max-w-[120px]"
         />
       </div>
-      <span className="pb-2 text-xs text-[#A39E98]">₹/mo</span>
+
+      <span className="pb-2 text-xs text-[#A39E98]">
+        ₹/mo
+      </span>
     </div>
   );
 }
@@ -371,7 +495,9 @@ export type DepreciationAssetDraft = {
   salvageValue: number;
 };
 
-export function DraftDepreciationAssetRow<K extends string>({
+export function DraftDepreciationAssetRow<
+  K extends string
+>({
   field,
   assetId,
   monthlyDepreciationLabel,
@@ -380,15 +506,32 @@ export function DraftDepreciationAssetRow<K extends string>({
   assetId: string;
   monthlyDepreciationLabel: ReactNode;
 }) {
-  const { draft, patch } = useSectionContext<Record<K, DepreciationAssetDraft[]>>();
-  const assets = (draft[field] ?? []) as DepreciationAssetDraft[];
-  const asset = assets.find((e) => e.id === assetId);
+  const { draft, patch } =
+    useSectionContext<
+      Record<K, DepreciationAssetDraft[]>
+    >();
+
+  const assets =
+    (draft[field] ?? []) as DepreciationAssetDraft[];
+
+  const asset = assets.find(
+    (e) => e.id === assetId
+  );
+
   if (!asset) return null;
 
-  const update = (updates: Partial<DepreciationAssetDraft>) => {
+  const update = (
+    updates: Partial<DepreciationAssetDraft>
+  ) => {
     patch({
-      [field]: assets.map((e) => (e.id === assetId ? { ...e, ...updates } : e)),
-    } as Partial<Record<K, DepreciationAssetDraft[]>>);
+      [field]: assets.map((e) =>
+        e.id === assetId
+          ? { ...e, ...updates }
+          : e
+      ),
+    } as Partial<
+      Record<K, DepreciationAssetDraft[]>
+    >);
   };
 
   return (
@@ -396,23 +539,39 @@ export function DraftDepreciationAssetRow<K extends string>({
       <DraftNumberFieldInline
         label={`${asset.name} — purchase value`}
         value={asset.purchaseValue}
-        onChange={(v) => update({ purchaseValue: v })}
+        onChange={(v) =>
+          update({ purchaseValue: v })
+        }
         suffix="₹"
       />
+
       <DraftNumberFieldInline
         label="Useful life"
         value={asset.usefulLifeMonths}
-        onChange={(v) => update({ usefulLifeMonths: Math.max(1, Math.round(v)) })}
+        onChange={(v) =>
+          update({
+            usefulLifeMonths: Math.max(
+              1,
+              Math.round(v)
+            ),
+          })
+        }
         suffix="months"
         integer
       />
+
       <DraftNumberFieldInline
         label="Salvage value"
         value={asset.salvageValue}
-        onChange={(v) => update({ salvageValue: v })}
+        onChange={(v) =>
+          update({ salvageValue: v })
+        }
         suffix="₹"
       />
-      <div className="flex items-end pb-1 text-xs text-[#6B6560]">{monthlyDepreciationLabel}</div>
+
+      <div className="flex items-end pb-1 text-xs text-[#6B6560]">
+        {monthlyDepreciationLabel}
+      </div>
     </div>
   );
 }
@@ -432,16 +591,30 @@ function DraftNumberFieldInline({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-[#6B6560]">{label}</label>
+      <label className="text-xs font-medium text-[#6B6560]">
+        {label}
+      </label>
+
       <div className="flex items-center gap-2">
         <Input
           type="number"
           value={String(value)}
           step={integer ? 1 : "any"}
-          onChange={(e) => onChange(parseNumber(e.target.value, { integer }))}
+          onChange={(e) =>
+            onChange(
+              parseNumber(e.target.value, {
+                integer,
+              })
+            )
+          }
           className="max-w-[200px]"
         />
-        {suffix && <span className="text-xs text-[#A39E98]">{suffix}</span>}
+
+        {suffix && (
+          <span className="text-xs text-[#A39E98]">
+            {suffix}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -469,7 +642,15 @@ export function DraftInlineNumber({
       min={min}
       max={max}
       step={integer ? 1 : "any"}
-      onChange={(e) => onChange(parseNumber(e.target.value, { integer, min, max }))}
+      onChange={(e) =>
+        onChange(
+          parseNumber(e.target.value, {
+            integer,
+            min,
+            max,
+          })
+        )
+      }
       className={cn("h-8", className)}
     />
   );
@@ -491,7 +672,9 @@ export function DraftTextField({
       type="text"
       value={value}
       placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) =>
+        onChange(e.target.value)
+      }
       className={className}
     />
   );
@@ -502,5 +685,10 @@ export function pickNumericFields(
   source: Record<string, unknown>,
   keys: string[]
 ): Record<string, number> {
-  return Object.fromEntries(keys.map((key) => [key, Number(source[key] ?? 0)]));
+  return Object.fromEntries(
+    keys.map((key) => [
+      key,
+      Number(source[key] ?? 0),
+    ])
+  );
 }

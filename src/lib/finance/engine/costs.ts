@@ -1,4 +1,5 @@
 import { d, sum, trace, type CalculationTrace } from "../decimal";
+import { forecastOwnPlan } from "./own-operating-plan";
 import type { FinanceAssumptions } from "../schemas";
 import Decimal from "decimal.js";
 import { splitServiceDemandSpots } from "./service-demand-mix";
@@ -31,8 +32,20 @@ export function calculateDirectCosts(
   assumptions: FinanceAssumptions,
   attendedSeatsMonthly: Decimal,
   classesPerMonth: Decimal,
-  grossBillings: Decimal
+  grossBillings: Decimal,
+  month = 1
 ): DirectCostsResult {
+  if (assumptions.ownOperatingPlan?.enabled) {
+    const plan = assumptions.ownOperatingPlan;
+    const forecast = forecastOwnPlan(plan, assumptions.weeksClosedPerYear, month)[month - 1];
+    const variableInstructorPayouts = d(forecast.demand.private_pilates * plan.privatePilatesPayout + forecast.demand.private_strength * plan.privateStrengthPayout);
+    const sessionConsumables = d(Object.values(forecast.demand).reduce((a,b)=>a+b,0)).times(assumptions.sessionConsumables);
+    const paymentFees = grossBillings.times(assumptions.paymentGatewayPct).dividedBy(100).plus(d(assumptions.paymentGatewayFixedFee).times(forecast.packageSales));
+    const directWorkshopCosts = d(forecast.variableCosts).minus(variableInstructorPayouts);
+    const totalDirectCosts = variableInstructorPayouts.plus(sessionConsumables).plus(paymentFees).plus(directWorkshopCosts).plus(sumCustomExpenses(assumptions,"variable"));
+    return {variableInstructorPayouts, sessionConsumables, paymentFees, directWorkshopCosts, totalDirectCosts,
+      trace:trace("OWN direct costs","Private session payouts + consumables + transaction fees + other revenue direct costs","INR/month",[],totalDirectCosts)};
+  }
   const split = splitServiceDemandSpots(assumptions, attendedSeatsMonthly);
   const groupAttended = split.groupSpots;
   const privateAttended = split.privateSpots;
@@ -121,6 +134,18 @@ export interface OperatingExpensesResult {
   trace: CalculationTrace;
 }
 
+/** OWN mode makes payroll respond to trainer headcount without a second salary line. */
+function instructorPayroll(assumptions: FinanceAssumptions) {
+  const plan = assumptions.ownOperatingPlan;
+  if (!plan?.enabled) return d(assumptions.additionalInstructorSalary);
+  if (plan.pilatesTrainerMonthlySalary === 0 && plan.strengthTrainerMonthlySalary === 0) {
+    // Preserve existing payroll until the new trainer-specific inputs are set.
+    return d(assumptions.additionalInstructorSalary);
+  }
+  return d(plan.pilatesTrainers).times(plan.pilatesTrainerMonthlySalary)
+    .plus(d(plan.strengthTrainers).times(plan.strengthTrainerMonthlySalary));
+}
+
 export function calculateOperatingExpenses(
   assumptions: FinanceAssumptions,
   classesPerMonth: Decimal
@@ -130,6 +155,7 @@ export function calculateOperatingExpenses(
       ? d(assumptions.ownerInstructorSalary)
       : new Decimal(0);
 
+  const trainerPayroll = instructorPayroll(assumptions);
   const utilities = d(assumptions.electricityBase).plus(
     d(assumptions.electricityVariablePerClass).times(classesPerMonth)
   );
@@ -145,7 +171,7 @@ export function calculateOperatingExpenses(
     d(assumptions.rent),
     d(assumptions.camMaintenance),
     ownerSalary,
-    d(assumptions.additionalInstructorSalary),
+    trainerPayroll,
     d(assumptions.cleanerSalary),
     d(assumptions.receptionSalary),
     d(assumptions.security),
@@ -163,7 +189,7 @@ export function calculateOperatingExpenses(
     d(assumptions.camMaintenance),
     utilities,
     ownerSalary,
-    d(assumptions.additionalInstructorSalary),
+    trainerPayroll,
     d(assumptions.cleanerSalary),
     d(assumptions.receptionSalary),
     d(assumptions.security),
@@ -189,7 +215,7 @@ export function calculateOperatingExpenses(
     camMaintenance: d(assumptions.camMaintenance),
     utilities,
     ownerSalary,
-    instructorSalaries: d(assumptions.additionalInstructorSalary),
+    instructorSalaries: trainerPayroll,
     cleanerSalary: d(assumptions.cleanerSalary),
     receptionSalary: d(assumptions.receptionSalary),
     security: d(assumptions.security),
