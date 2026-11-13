@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect -- Existing state synchronization; requires a separate behavioral refactor. */
+
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store/app-store";

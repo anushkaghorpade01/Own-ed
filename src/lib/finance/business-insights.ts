@@ -23,7 +23,7 @@ export function explainBreakEvenOccupancy(model: FinanceModelOutput): BusinessIn
   const currentNum = current;
   const gap = pctNum - currentNum;
 
-  let headline = `${pct.toFixed(0)}% of seats must be occupied to cover fixed costs`;
+  const headline = `${pct.toFixed(0)}% of seats must be occupied to cover fixed costs`;
   let explanation = `You have ${available.toFixed(0)} bookable seats per month. To cover rent, salaries, and other fixed bills from class contribution, you need ${required.toFixed(0)} seats actually occupied — roughly ${fullClassesNeeded.toFixed(0)} full classes (at ${classSize} people each). This is a planning threshold, not a statement about unused seats being financial losses.`;
 
   if (gap > 0) {

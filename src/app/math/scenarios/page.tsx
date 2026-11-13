@@ -114,12 +114,9 @@ export default function ScenariosPage() {
   const editableScenarios = activeScenarios.filter((s) => !s.isBaseCase);
   const optimisationDrafts = editableScenarios.filter(isOptimisationDraftScenario);
   const manualScenarios = editableScenarios.filter((s) => !isOptimisationDraftScenario(s));
-  const baseAssumptions = useMemo(
-    () => resolveBaseAssumptionsForAnalysis(state.assumptions, baseScenario),
-    [state.assumptions, baseScenario]
-  );
+  const baseAssumptions = resolveBaseAssumptionsForAnalysis(state.assumptions, baseScenario);
 
-  const comparison = useMemo(() => {
+  const comparison = (() => {
     const selected = activeScenarios.filter((s) => selectedIds.includes(s.id));
     return compareScenarios(
       baseAssumptions,
@@ -127,13 +124,13 @@ export default function ScenariosPage() {
         resolveScenarioAssumptionsForAnalysis(scenario, state.assumptions)
       )
     );
-  }, [activeScenarios, selectedIds, baseAssumptions, state.assumptions]);
+  })();
 
-  const focusAnalysis = useMemo(() => {
+  const focusAnalysis = (() => {
     const scenario = activeScenarios.find((s) => s.id === focusId);
     if (!scenario) return null;
     return comparison.find((c) => c.metrics.name === scenario.assumptions.name) ?? comparison[0];
-  }, [activeScenarios, focusId, comparison]);
+  })();
 
   const keyDrivers = useMemo(
     () => calculateKeyDrivers(baseAssumptions),

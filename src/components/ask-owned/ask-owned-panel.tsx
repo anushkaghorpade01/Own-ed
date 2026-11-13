@@ -135,9 +135,11 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
     [pending, pathname, state.assumptions, model, occupancyHint, classSizeHint, calcSnapshot]
   );
 
-  submitRef.current = (q: string) => {
-    void submit(q);
-  };
+  useEffect(() => {
+    submitRef.current = (q: string) => {
+      void submit(q);
+    };
+  }, [submit]);
 
   const handleClear = async () => {
     setMessages([]);

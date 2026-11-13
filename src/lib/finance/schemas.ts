@@ -354,11 +354,65 @@ export const ForecastSettingsSchema = z.object({
 
 export type ForecastSettings = z.infer<typeof ForecastSettingsSchema>;
 
+// OWN operating-plan inputs are separate from the legacy access-credit engine.
+export const OwnServiceSchema = z.enum(["group_pilates", "group_strength", "private_pilates", "private_strength"]);
+export const OwnPackageSchema = z.object({
+  id: z.string(), name: z.string(), family: z.string(), price: z.number().min(0),
+  validityMonths: z.number().int().min(1).max(24),
+  sessions: z.object({ group_pilates: z.number().int().min(0).default(0), group_strength: z.number().int().min(0).default(0), private_pilates: z.number().int().min(0).default(0), private_strength: z.number().int().min(0).default(0) }),
+  expectedSalesPerMonth: z.number().min(0).default(0), active: z.boolean().default(true),
+});
+export const OwnOtherRevenueSchema = z.object({
+  id: z.string(), name: z.string(), unitPrice: z.number().min(0).default(0),
+  monthlyUnits: z.array(z.number().min(0)).length(12).default(Array(12).fill(0)),
+  variableCostPerUnit: z.number().min(0).default(0),
+  // Studio hours blocked per booking, for opportunity-cost planning.
+  studioHoursPerUnit: z.number().min(0).default(0),
+  resource: z.enum(["none", "pilates", "strength", "both"]).default("none"),
+  active: z.boolean().default(true),
+});
+export const OwnContributionSchema = z.object({ id: z.string(), name: z.string(), amount: z.number().min(0) });
+export const OwnScheduleEntrySchema = z.object({
+  id: z.string(), day: z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  durationMinutes: z.number().int().min(15).max(240).default(60),
+  service: OwnServiceSchema, active: z.boolean().default(true),
+});
+export const OwnOperatingPlanSchema = z.object({
+  enabled: z.boolean().default(false),
+  packages: z.array(OwnPackageSchema).default([]),
+  otherRevenue: z.array(OwnOtherRevenueSchema).default([]),
+  contributions: z.array(OwnContributionSchema).default([]),
+  schedule: z.array(OwnScheduleEntrySchema).default([]),
+  reformers: z.number().int().positive().default(5),
+  strengthGroupLimit: z.number().int().positive().default(6),
+  pilatesTrainers: z.number().int().positive().default(1),
+  strengthTrainers: z.number().int().positive().default(1),
+  privatePilatesPayout: z.number().min(0).default(0),
+  privateStrengthPayout: z.number().min(0).default(0),
+  pilatesTrainerMonthlySalary: z.number().min(0).default(0),
+  strengthTrainerMonthlySalary: z.number().min(0).default(0),
+  churnPct: z.number().min(0).max(100).default(8),
+  renewalPurchasePct: z.number().min(0).max(100).default(70),
+  openingActiveMembers: z.number().int().min(0).default(0),
+  newMembersPerMonth: z.number().int().min(0).default(0),
+  targetRevenueByMonth: z.array(z.number().min(0)).length(12).default(Array(12).fill(600000)),
+  seasonByMonth: z.array(z.enum(["peak", "normal", "off"])).length(12).default(Array(12).fill("normal")),
+  seasonDemandPct: z.object({ peak: z.number().min(0).max(100).default(80), normal: z.number().min(0).max(100).default(60), off: z.number().min(0).max(100).default(40) }).default({peak:80,normal:60,off:40}),
+  expectedUsagePct: z.number().min(0).max(100).default(90),
+});
+export type OwnOperatingPlan = z.infer<typeof OwnOperatingPlanSchema>;
+export type OwnPackage = z.infer<typeof OwnPackageSchema>;
+export type OwnScheduleEntry = z.infer<typeof OwnScheduleEntrySchema>;
+export type OwnOtherRevenue = z.infer<typeof OwnOtherRevenueSchema>;
+
 export const FinanceAssumptionsSchema = z.object({
   id: z.string(),
   name: z.string().default("Live Assumptions"),
   isSample: z.boolean().default(true),
   updatedAt: z.string(),
+
+  ownOperatingPlan: OwnOperatingPlanSchema.optional(),
 
   // General
   currency: z.string().default("INR"),

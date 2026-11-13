@@ -23,9 +23,14 @@ function useDebouncedCommit(
   const [local, setLocal] = useState(String(externalValue));
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCommitRef = useRef(onCommit);
-  onCommitRef.current = onCommit;
-
   useEffect(() => {
+    onCommitRef.current = onCommit;
+  }, [onCommit]);
+
+  // Keep the user's in-progress text while editing; reinitialize when the external
+  // value changes by remounting the input at its parent if necessary.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocal(String(externalValue));
   }, [externalValue]);
 

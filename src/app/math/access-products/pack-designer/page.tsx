@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useApp } from "@/lib/store/app-store";
 import { useFinanceModel } from "@/hooks/use-finance-model";
 import {
@@ -30,14 +30,9 @@ export default function PackDesignerPage() {
   const [safeSalesCount, setSafeSalesCount] = useState(5);
 
   const product = packs.find((p) => p.id === selectedId) ?? packs[0];
-  const econ = useMemo(
-    () => (product ? analyzeFlexiblePack(product, state.assumptions) : null),
-    [product, state.assumptions]
-  );
+  const econ = product ? analyzeFlexiblePack(product, state.assumptions) : null;
 
-  const safeSales = useMemo(() => {
-    if (!product || !econ) return null;
-    return estimateSafePackSales({
+  const safeSales = product && econ ? estimateSafePackSales({
       product,
       assumptions: state.assumptions,
       additionalPacksToSell: safeSalesCount,
@@ -46,8 +41,7 @@ export default function PackDesignerPage() {
         model.accessProducts.creditHealth.eligibleFlexibleCapacity,
       eligiblePeakFlexibleCapacitySessions:
         model.accessProducts.creditHealth.eligiblePeakFlexibleCapacity,
-    });
-  }, [product, econ, safeSalesCount, state.assumptions, model]);
+    }) : null;
 
   if (!product || !econ) {
     return (
