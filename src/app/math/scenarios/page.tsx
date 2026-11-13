@@ -1,4 +1,6 @@
+
 "use client";
+/* eslint react-hooks/preserve-manual-memoization: "off" */
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/lib/store/app-store";
