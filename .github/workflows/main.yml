@@ -1,0 +1,59 @@
+
+name: OWN Financial Model Tests
+
+on:
+  push:
+    branches:
+      - New
+      - new
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run ESLint
+        run: npm run lint
+
+  verify:
+    name: TypeScript, Tests and Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        run: npm test -- --run
+
+      - name: Build application
+        run: npm run build
