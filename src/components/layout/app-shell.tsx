@@ -70,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Own-ed
           </Link>
           <div className="flex items-center gap-2">
-            {!isLiveFinance && <><ExportMenu />
+            {!isLiveFinance && <><span className="text-[10px] text-[#6b6560]">Legacy finance export</span><ExportMenu />
             <button
               type="button"
               onClick={() => setAskOpen(true)}
@@ -114,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/settings/data"
               className="hidden rounded-lg px-2.5 py-1.5 text-sm font-semibold text-[#2C2825] hover:bg-[#F0EBE3] sm:block"
             >
-              Data
+              Data (legacy)
             </Link>
           </div>
         </div>
@@ -142,7 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </ul>
         </nav>
       </header>
-      <main className={cn("mx-auto max-w-[1400px] px-[var(--space-page-x)] py-[var(--space-page-y)]", isMath && "max-w-[1500px]")}>{children}</main>
+      <main className={cn("mx-auto max-w-[1400px] px-[var(--space-page-x)] py-[var(--space-page-y)]", isMath && "max-w-[1500px]")}>{(pathname==='/'||pathname==='/settings/data')&&<div className="mb-6 rounded-lg border border-[#c4a882] bg-white p-4 text-sm leading-6"><strong>Current financial model: teacher-first studio.</strong>{" "}<Link className="underline" href="/math/scenarios">Open current scenarios, assumptions and exports.</Link><p>Home finance tiles and Data financial exports/backups below use your preserved older saved plan. They do not include the teacher-first forecast or its saved assumptions. Export the current plan and monthly CSV from Math. Other saved workspace data is unchanged.</p></div>}{children}</main>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <AskOwnedPanel open={askOpen} onOpenChange={setAskOpen} />
     </div>
