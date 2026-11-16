@@ -44,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const isMath = pathname.startsWith("/math");
+  const isLiveFinance = isMath && !["/math/actuals", "/math/snapshots", "/math/dictionary", "/math/schedule"].includes(pathname);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -53,12 +54,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
-        undo();
+        if (!isLiveFinance) undo();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [undo]);
+  }, [undo, isLiveFinance]);
 
   return (
     <Tooltip.Provider delayDuration={200} skipDelayDuration={0}>
@@ -69,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Own-ed
           </Link>
           <div className="flex items-center gap-2">
-            <ExportMenu />
+            {!isLiveFinance && <><ExportMenu />
             <button
               type="button"
               onClick={() => setAskOpen(true)}
@@ -95,7 +96,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Undo2 className="h-4 w-4" />
             </button>
-            <LocalSaveStatus />
+            <LocalSaveStatus /></>}
+            {isLiveFinance && <span className="rounded-full bg-[#f0ebe3] px-3 py-1.5 text-[10px] text-[#6b6560]">OWN 2028 · local live plan</span>}
             <Link
               href="/guide"
               className={cn(
