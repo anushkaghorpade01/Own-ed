@@ -1,0 +1,14 @@
+import {describe,it,expect} from 'vitest';
+import {initialFinance,validateFinance,parse,optionsFor} from './plan';
+import {runPrimaryModel} from '../own-primary';
+import {appStateToPayload,payloadToAppState} from '@/lib/data/local/app-state-bridge';
+import {defaultAppState} from '@/lib/store/default-state';
+import {backupToAppState} from '@/lib/data/local/backup';
+describe('Current financial data',()=>{
+ it('isolates initial states and preserves the current baseline',()=>{const a=initialFinance(),b=initialFinance();a.plan.shared.churnOverride=.1;expect(b.plan.shared.churnOverride).toBeUndefined();expect(parse(JSON.stringify(b.plan))).toEqual(b.plan);});
+ it('round trips plan, actuals, calculator inputs and selection in canonical local persistence',()=>{const state=defaultAppState();state.currentFinance=initialFinance();state.currentFinance.actuals=[{month:1,recordedAt:'2026-11-16',notes:'real result',values:{members:0,cash:-50}}];state.currentFinance.selection={caseName:'conservative',month:12};state.currentFinance.settings.discountRate=.12;const restored=payloadToAppState(appStateToPayload(state));expect(restored.currentFinance).toEqual(state.currentFinance);expect(restored.spaceImages).toEqual(state.spaceImages);expect(restored.programmingItems).toEqual(state.programmingItems);});
+ it('includes extensions and current model in a full backup restore without changing protected records',()=>{const state=defaultAppState();state.currentFinance=initialFinance();const payload=appStateToPayload(state);const restored=backupToAppState({schemaVersion:1,exportedAt:'2026-11-16',appVersion:'test',data:payload.normalized,extensions:payload.extensions,assetMetadata:[]});expect(restored.currentFinance).toEqual(state.currentFinance);expect(restored.spaceImages).toEqual(state.spaceImages);expect(restored.productConcepts).toEqual(state.productConcepts);expect(restored.programmingItems).toEqual(state.programmingItems);});
+ it('does not reinterpret an old backup as an approved current plan',()=>{const state=defaultAppState();expect(payloadToAppState(appStateToPayload(state)).currentFinance).toBeUndefined();});
+ it('rejects invalid actuals and unknown plan shape',()=>{const f=initialFinance();f.actuals=[{month:73,recordedAt:'x',notes:'',values:{members:1}}];expect(()=>validateFinance(f)).toThrow();expect(()=>parse('{"version":2}')).toThrow();});
+ it('validates every snapshot and keeps its outputs independent from later edits',()=>{const f=initialFinance();const p=runPrimaryModel(optionsFor(f.plan,'target'));f.snapshots.push({id:'s1',name:'Frozen',createdAt:'2026-11-16',engine:'test',caseName:'target',plan:structuredClone(f.plan),outputs:structuredClone(p.result)});f.plan.shared.inputOverrides={rent:80000};expect(validateFinance(f).snapshots[0].outputs.totalProfit).toBe(p.result.totalProfit);expect(f.snapshots[0].plan.shared.inputOverrides).toBeUndefined();});
+});

@@ -2,6 +2,7 @@
  * Local-first persistence orchestrator.
  * IndexedDB is canonical; optional folder mirror is best-effort.
  */
+import {preservePreUpdateData} from "./recovery";
 import type { AppState } from "@/lib/store/app-state";
 import type { LocalPersistenceStats, LocalSaveStatus } from "../types";
 import type { AssetUploadMeta } from "../repositories";
@@ -82,6 +83,7 @@ export const persistenceService = {
   async saveAppState(state: AppState): Promise<void> {
     notifyStatus("saving");
     try {
+      await preservePreUpdateData();
       const payload = appStateToPayload(state);
       await saveAppDataPayload(payload);
       const savedAt = new Date().toISOString();

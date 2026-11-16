@@ -1,2 +1,2 @@
-import { OwnLivePage } from "@/components/finance/own-live";
-export default function Page(){return <OwnLivePage initialView="Sensitivity" title="Optimise"/>;}
+import {CurrentTools} from '@/components/finance/current-tools';
+export default function Page(){return <CurrentTools initialTool="Optimise"/>;}

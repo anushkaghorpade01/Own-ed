@@ -1,0 +1,12 @@
+import {it,expect} from 'vitest';
+import {workloadMonth,SOP_TASKS,type WorkloadConfig} from './workload';
+const x:WorkloadConfig={enquiryConversion:.25,monthlySoftware:1000,perAutomatedMessage:1,incrementalHourlyCost:100,availableTeamHours:1,availableTeamHoursAfterHire:1,firstTimeDropFraction:1,newFirstClassAttendanceFraction:1,renewalDueMonthly:16,tasks:SOP_TASKS.map(t=>({id:t.id,contactsPerEvent:1,manualMinutes:10,automatedFraction:.5}))};
+const counts={newCustomers:4,retained:40,packPurchases:20,returningBuyers:16,paidDropIns:4,paidPrivates:8,closed:false};
+it('counts enquiry work separately from successful joins and charges time/software',()=>{const r=workloadMonth(x,counts);expect(r.enquiries).toBe(16);expect(r.automatedMessages).toBe(68);expect(r.manualHours).toBeCloseTo(136*5/60);expect(r.softwareCost).toBe(1068);expect(r.totalIncrementalCost).toBeCloseTo(1068+(r.manualHours-1)*100);expect(r.uncoveredHours).toBeGreaterThan(0);});
+it('does not make all human work free just because messages are automated',()=>{const r=workloadMonth({...x,tasks:x.tasks.map(t=>({...t,automatedFraction:0}))},counts);expect(r.automatedMessages).toBe(0);expect(r.manualHours).toBeGreaterThan(0);expect(r.softwareCost).toBe(1000);});
+it('rejects missing assumptions instead of treating unknown workload as zero',()=>{expect(()=>workloadMonth({...x,enquiryConversion:0},counts)).toThrow();expect(()=>workloadMonth({...x,tasks:[]},counts)).toThrow();});
+
+it('uses requested acquisition effort for enquiries even when starts are denied',()=>{const r=workloadMonth(x,{...counts,requestedNew:8,newCustomers:4});expect(r.enquiries).toBe(32);});
+it('charges no extra labor inside existing hours and uses explicit first-time and due-contact inputs',()=>{const r=workloadMonth({...x,availableTeamHours:1000,firstTimeDropFraction:0,renewalDueMonthly:30},counts);expect(r.incrementalLaborCost).toBe(0);expect(r.tasks.find(t=>t.id==='first-class')!.events).toBe(4);expect(r.tasks.find(t=>t.id==='renewals')!.events).toBe(30);});
+
+it('uses separately supplied post-hire hours and a dated renewal-contact override including closure',()=>{const c={...x,availableTeamHours:0,availableTeamHoursAfterHire:1000,renewalDueByMonth:Array(72).fill(3)};expect(workloadMonth(c,{...counts,hired:false}).incrementalLaborCost).toBeGreaterThan(0);const r=workloadMonth(c,{...counts,hired:true,closed:true,monthIndex:11});expect(r.incrementalLaborCost).toBe(0);expect(r.tasks.find(t=>t.id==='renewals')!.events).toBe(3);});

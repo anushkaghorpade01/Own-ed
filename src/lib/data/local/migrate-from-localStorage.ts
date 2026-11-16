@@ -1,6 +1,7 @@
 /**
  * One-time migration from localStorage → IndexedDB.
  */
+import {preservePreUpdateData} from "./recovery";
 import {
   getAppDataPayload,
   getMetaFlag,
@@ -19,6 +20,7 @@ export async function migrateFromLocalStorageIfNeeded(): Promise<{
   migrated: boolean;
   source: "indexeddb" | "localStorage" | "default";
 }> {
+  await preservePreUpdateData();
   const existing = await getAppDataPayload();
   if (existing) {
     return { migrated: false, source: "indexeddb" };
@@ -54,8 +56,7 @@ export async function migrateFromLocalStorageIfNeeded(): Promise<{
     return { migrated: true, source: "localStorage" };
   } catch (error) {
     console.error("localStorage migration failed:", error);
-    await setMetaFlag(META_MIGRATION_KEY, true);
-    return { migrated: false, source: "default" };
+    throw new Error("Original legacy data could not be read. Its recovery copy is preserved; defaults will not overwrite it.");
   }
 }
 

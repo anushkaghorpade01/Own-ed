@@ -40,11 +40,12 @@ const mainNav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { undo } = useApp();
+  const { undo, loadError } = useApp();
   const [searchOpen, setSearchOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
   const isMath = pathname.startsWith("/math");
-  const isLiveFinance = isMath && !["/math/actuals", "/math/snapshots", "/math/dictionary", "/math/schedule"].includes(pathname);
+  const compactWorkbench = isMath;
+  const isLiveFinance = isMath;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -54,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "z") {
         e.preventDefault();
-        if (!isLiveFinance) undo();
+        undo();
       }
     };
     window.addEventListener("keydown", handler);
@@ -65,12 +66,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <Tooltip.Provider delayDuration={200} skipDelayDuration={0}>
     <div className="min-h-screen bg-[#FAF8F5]">
       <header className="sticky top-0 z-40 border-b border-[#E8E2D9]/80 bg-[#FAF8F5]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4">
-          <Link href="/" className="font-wordmark text-xl tracking-tight text-[#2C2825]">
+        <div className={cn("mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-3 px-6 py-4",compactWorkbench&&"max-sm:py-3")}>
+          <Link href="/" className="font-wordmark shrink-0 whitespace-nowrap text-xl tracking-tight text-[#2C2825]">
             Own-ed
           </Link>
-          <div className="flex items-center gap-2">
-            {!isLiveFinance && <><span className="text-[10px] text-[#6b6560]">Legacy finance export</span><ExportMenu />
+          <div className={cn("max-w-full min-w-0 flex-wrap items-center gap-2",compactWorkbench?"hidden sm:flex":"flex")}>
+            <ExportMenu />
+            <>
             <button
               type="button"
               onClick={() => setAskOpen(true)}
@@ -96,8 +98,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <Undo2 className="h-4 w-4" />
             </button>
-            <LocalSaveStatus /></>}
-            {isLiveFinance && <span className="rounded-full bg-[#f0ebe3] px-3 py-1.5 text-[10px] text-[#6b6560]">OWN 2028 · local live plan</span>}
+            <LocalSaveStatus /></>
+            
             <Link
               href="/guide"
               className={cn(
@@ -114,11 +116,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href="/settings/data"
               className="hidden rounded-lg px-2.5 py-1.5 text-sm font-semibold text-[#2C2825] hover:bg-[#F0EBE3] sm:block"
             >
-              Data (legacy)
+              Data
             </Link>
           </div>
         </div>
-        <nav className="mx-auto max-w-[1400px] overflow-x-auto px-6 pb-3">
+        <nav aria-label="Workspace navigation, scroll horizontally for more" tabIndex={0} className={cn("mx-auto max-w-[1400px] overflow-x-auto px-6 pb-3",compactWorkbench&&"max-sm:pb-2")}>
           <ul className="flex gap-1">
             {mainNav.map(({ href, label, icon: Icon }) => {
               const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -142,7 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </ul>
         </nav>
       </header>
-      <main className={cn("mx-auto max-w-[1400px] px-[var(--space-page-x)] py-[var(--space-page-y)]", isMath && "max-w-[1500px]")}>{(pathname==='/'||pathname==='/settings/data')&&<div className="mb-6 rounded-lg border border-[#c4a882] bg-white p-4 text-sm leading-6"><strong>Current financial model: teacher-first studio.</strong>{" "}<Link className="underline" href="/math/scenarios">Open current scenarios, assumptions and exports.</Link><p>Home finance tiles and Data financial exports/backups below use your preserved older saved plan. They do not include the teacher-first forecast or its saved assumptions. Export the current plan and monthly CSV from Math. Other saved workspace data is unchanged.</p></div>}{children}</main>
+      <main className={cn("mx-auto max-w-[1400px] px-[var(--space-page-x)] py-[var(--space-page-y)]", isMath && "max-w-[1500px]")}>{loadError&&<div role="alert" className="mb-6 rounded-lg border border-red-500 bg-red-50 p-4 text-red-900">{loadError} Displayed defaults are not your saved forecast. No records have been overwritten.</div>}{children}</main>
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <AskOwnedPanel open={askOpen} onOpenChange={setAskOpen} />
     </div>

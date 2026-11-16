@@ -96,14 +96,15 @@ export function validateInputs(x:ModelInputs):string[]{
  for(const s of x.scenarios){if(!Number.isFinite(s.founders)||s.founders<0||!Number.isFinite(s.churn)||s.churn<0||s.churn>1||s.adds.length!==6||s.adds.some(v=>!Number.isFinite(v)||v<0))e.push(`${s.name}: founders, six annual net-add rates and churn must be valid.`);}
  return e;
 }
-export function runScenario(x:ModelInputs,which:number,options:{privatesBeforeHandover?:boolean;initialReformers?:number;fixedClasses?:boolean;privateHandoverMonth?:number;keepFounderTeachingPay?:boolean;privateWeeklySlots?:number;monthlyNetAdds?:number[];memberCap?:number;founderSingleSalary?:boolean;juniorFlatSalary?:number;capitalFirstWaterfall?:boolean;founderCapital?:number;postCapitalPayout?:number;capitalRecoveryPartnerShare?:number;fixedWeeklyClasses?:number;unitCostEscalation?:number;internStartMonth?:number;internMonthly?:number;grossSignupCap?:number;monthlyGrossSignupCaps?:number[]}={}):ScenarioResult{
+export function runScenario(x:ModelInputs,which:number,options:{dropInDemandMultiplier?:number;illustrativeCapacity?:boolean;privatesBeforeHandover?:boolean;initialReformers?:number;fixedClasses?:boolean;privateHandoverMonth?:number;keepFounderTeachingPay?:boolean;privateWeeklySlots?:number;monthlyNetAdds?:number[];memberCap?:number;founderSingleSalary?:boolean;juniorFlatSalary?:number;capitalFirstWaterfall?:boolean;founderCapital?:number;postCapitalPayout?:number;capitalRecoveryPartnerShare?:number;fixedWeeklyClasses?:number;unitCostEscalation?:number;internStartMonth?:number;internMonthly?:number;grossSignupCap?:number;monthlyGrossSignupCaps?:number[]}={}):ScenarioResult{
  const stages=options.fixedWeeklyClasses===undefined?STAGES:STAGES.map(s=>({...s,c:options.fixedWeeklyClasses!}));
  if(options.fixedWeeklyClasses!==undefined&&(!Number.isInteger(options.fixedWeeklyClasses)||options.fixedWeeklyClasses<1))throw new Error('Weekly group classes must be a positive integer.');
+ if(options.dropInDemandMultiplier!==undefined&&(!Number.isFinite(options.dropInDemandMultiplier)||options.dropInDemandMultiplier<0))throw new Error('Drop-in demand multiplier must be nonnegative.');
  const errors=validateInputs(x);if(errors.length)throw new Error(errors.join(' '));
  const s=x.scenarios[which];if(!s)throw new Error('Unknown scenario.');
  const open=Date.parse(x.opening+'T00:00:00Z');const od=new Date(open);
  const blend=total(x.mix.map((v,i)=>v*x.frequency[i]));const peak=Math.max(...x.seasonality);
- if(options.initialReformers!==undefined&&(!Number.isInteger(options.initialReformers)||options.initialReformers<4||options.initialReformers>6))throw new Error('Initial reformers must be 4, 5 or 6.');
+ if(options.initialReformers!==undefined&&(!Number.isInteger(options.initialReformers)||options.initialReformers<4||options.initialReformers>(options.illustrativeCapacity?24:6)))throw new Error('Initial reformers must be 4, 5 or 6.');
  let reformerCount=options.initialReformers??4;let stage=0,members=0,cash=x.funding-x.setupSpend,fd=0,partnerCumulative=0,streak=0,lastExpansion=-1;
  let weekStart=open,weekVisits=0,weekDemandVisits=0,weekDays=0,weekStage=0,weekSeats=100;
  let reserveHeld=0,quarterProfit=0,quarterReserve=0,founderCapitalReturned=0,quarterNetProfit=0;
@@ -149,12 +150,12 @@ export function runScenario(x:ModelInputs,which:number,options:{privatesBeforeHa
   const capexNext=addReformer?x.reformerCost:0;
   const nextMembers=Math.min(nextCap,members+queued);
   const forecastMemberVisits=nextMembers*blend*peak*days/7;
-  const forecastGroupVisits=forecastMemberVisits/x.memberShare;
+  const forecastGroupVisits=forecastMemberVisits+forecastMemberVisits*(1-x.memberShare)/x.memberShare*(options.dropInDemandMultiplier??1);
   const forecastStrengthVisits=nextMembers*(x.mix[2]+x.mix[3])*x.strengthFrequency*days/7;
   const forecastPrivateVisits=(next>0||options.privatesBeforeHandover||(options.privateHandoverMonth!==undefined&&m>=options.privateHandoverMonth))?x.privateCapacity*peak*days/7:0;
   const forecastPackValue=nextMembers*(x.mix[0]*x.pack8+x.mix[1]*x.pack16)*factor+(forecastMemberVisits/(1-x.packBreakage))*Math.max(x.pack8/8,x.pack16/16)*factor;
   const forecastDues=nextMembers*(x.mix[2]*x.complete+x.mix[3]*x.strength)*factor;
-  const forecastReceipts=(forecastPackValue+forecastDues+forecastGroupVisits*x.dropIn*factor+forecastPrivateVisits*x.privatePrice*factor)*(1+x.outputGST);
+  const forecastReceipts=(forecastPackValue+forecastDues+forecastGroupVisits*x.dropIn*factor*(options.dropInDemandMultiplier??1)+forecastPrivateVisits*x.privatePrice*factor)*(1+x.outputGST);
   const forecastVariable=(forecastGroupVisits+forecastStrengthVisits+forecastPrivateVisits)*x.consumablesPerVisit*Math.pow(1+(options.unitCostEscalation??0),year)+forecastReceipts*x.paymentFee*Math.pow(1+(options.unitCostEscalation??0),year)+forecastDues*x.strengthShare+nextMembers*x.otherVariablePerMember;
   const extraFounderTeachingPay=options.keepFounderTeachingPay&&options.privateHandoverMonth!==undefined&&m>=options.privateHandoverMonth?x.pilatesSalary*Math.pow(1+x.salaryEscalation,year):0;
   const juniorPayroll=options.founderSingleSalary&&options.privateHandoverMonth!==undefined&&m>=options.privateHandoverMonth?(options.juniorFlatSalary??40000):(options.internStartMonth!==undefined&&m>=options.internStartMonth?(options.internMonthly??20000):0);
@@ -197,7 +198,7 @@ export function runScenario(x:ModelInputs,which:number,options:{privatesBeforeHa
     if(available+EPS<need){buy(product,(need-available)/(product*(1-x.packBreakage)),day,(product===8?x.pack8:x.pack16)*factor);available=need;}
     for(const p of activePacks){if(p.product!==product||p.usable<=EPS||need<=EPS)continue;const use=Math.min(need,p.usable);p.usable-=use;p.remaining-=use;p.served+=use;p.deferredValue=p.remaining/p.product*p.price;earnedPack+=use/product*p.price;need-=use;}
    }
-   const visit=members*blend*season/7;const drops=visit*(1-x.memberShare)/x.memberShare;
+   const visit=members*blend*season/7;const drops=visit*(1-x.memberShare)/x.memberShare*(options.dropInDemandMultiplier??1);
    memberVisits+=visit;dropVisits+=drops;
    const privateAvailable=Math.max(0,(x.roomHours-classes)/x.privateRoomHours);
    privateSessions+=Math.min(Math.min(privateDemand,x.privateCapacity,privateAvailable)*season,options.privateWeeklySlots??Infinity)/7;

@@ -3,6 +3,7 @@
 export const SPREADSHEET_TITLE = "OWN-ED DATA";
 
 export const SHEET_TABS = {
+  CurrentFinance: ["id", "chunk_json", "engine_version", "updated_at"],
   Settings: [
     "id",
     "connected_sheet_id",

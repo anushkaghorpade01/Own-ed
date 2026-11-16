@@ -1,0 +1,2 @@
+import {describe,it,expect} from 'vitest';import {closureCashMonth} from './closure-cash';
+describe('closure cash with no invented savings',()=>{it('keeps payable fixed bills while no visits avoid attendance cost',()=>{const r=closureCashMonth({month:'2028-06',openingCash:500000,packReceipts:0,otherReceipts:0,fixedBillsPayable:250000,attendance:0,consumablePerVisit:40,processingRate:.02,gstCollected:0,gstRemitted:0,otherCashOutflow:0,refunds:0,comparisonTax:0,fdInterest:0});expect(r.closingCash).toBe(250000);expect(r.variableCost).toBe(0);});});

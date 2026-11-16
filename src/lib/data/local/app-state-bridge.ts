@@ -37,6 +37,7 @@ export function appStateToPayload(state: AppState): LocalDbPayload {
     schemaVersion: DB_VERSION,
     normalized: {
       ...data,
+      currentFinance: state.currentFinance,
       // Preserve full brand/space in extensions; assets tab holds metadata refs
     },
     extensions: {
@@ -55,6 +56,7 @@ export function payloadToAppState(payload: LocalDbPayload): AppState {
   const defaults = normalizePayloadExtensions(payload.extensions);
 
   return {
+    currentFinance: payload.normalized.currentFinance,
     assumptions: legacy.assumptions!,
     decisions: legacy.decisions ?? [],
     questions: stripSampleQuestions(legacy.questions ?? []),

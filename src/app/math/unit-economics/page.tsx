@@ -1,2 +1,2 @@
-import { OwnLivePage } from "@/components/finance/own-live";
-export default function Page(){return <OwnLivePage initialView="Sensitivity" title="Unit Economics & Drivers"/>;}
+import {CurrentProducts} from "@/components/finance/current-products";
+export default function Page(){return <CurrentProducts view="Pack designer"/>;}

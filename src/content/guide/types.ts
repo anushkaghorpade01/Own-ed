@@ -22,5 +22,5 @@ export interface GuideGroup {
   sections: GuideSection[];
 }
 
-export const GUIDE_VERSION = "2026-09-02";
+export const GUIDE_VERSION = "2026-11-16";
 export const GUIDE_WORD_TARGET = "1,500–2,500 words";

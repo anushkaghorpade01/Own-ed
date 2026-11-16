@@ -5,11 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X, Send, Trash2, Shield, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { useApp } from "@/lib/store/app-store";
-import { useFinanceModel } from "@/hooks/use-finance-model";
+import { useTeacherFirstFinance } from "@/lib/store/teacher-first-store";
+import {answerCurrentQuestion} from "@/lib/finance/current/answers";
 import { useSpeechInput } from "@/hooks/use-speech-input";
 import {
-  answerOwnedQuestion,
   classifyOwnedQuestion,
   getOwnedPageContext,
   loadAskOwnedHistory,
@@ -17,9 +16,6 @@ import {
   clearAskOwnedHistory,
   logUnknownQuestion,
   createConversationEntry,
-  parseOccupancyFromQuestion,
-  parseFullClassSize,
-  type CalculationSnapshot,
   type OwnedAnswer,
 } from "@/lib/ask-owned";
 
@@ -36,14 +32,10 @@ interface ChatMessage {
 
 export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
   const pathname = usePathname();
-  const { state, updateAssumptions } = useApp();
-  const model = useFinanceModel();
+  const {finance}=useTeacherFirstFinance();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState(false);
-  const [occupancyHint, setOccupancyHint] = useState<number | undefined>();
-  const [classSizeHint, setClassSizeHint] = useState<number | undefined>();
-  const [calcSnapshot, setCalcSnapshot] = useState<CalculationSnapshot | undefined>();
   const scrollRef = useRef<HTMLDivElement>(null);
   const submitRef = useRef<(q: string) => void>(() => {});
   const page = getOwnedPageContext(pathname);
@@ -90,24 +82,8 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
       setMessages((m) => [...m, { role: "user", content: q }]);
       setPending(true);
 
-      const parsedOcc = parseOccupancyFromQuestion(q);
-      const parsedSize = parseFullClassSize(q, state.assumptions.maxGroupClassSize);
-      const occHint = parsedOcc ?? occupancyHint;
-      if (parsedOcc != null) setOccupancyHint(parsedOcc);
-      if (parsedSize !== state.assumptions.maxGroupClassSize) setClassSizeHint(parsedSize);
-
-      const ctx = {
-        pathname,
-        assumptions: state.assumptions,
-        model,
-        occupancyHint: occHint,
-        classSizeHint: classSizeHint ?? parsedSize,
-        calculationSnapshot: calcSnapshot,
-      };
       const category = classifyOwnedQuestion(q, pathname);
-      const answer = answerOwnedQuestion(q, ctx);
-
-      if (answer.calculationSnapshot) setCalcSnapshot(answer.calculationSnapshot);
+      const answer = answerCurrentQuestion(q, finance);
 
       setMessages((m) => [
         ...m,
@@ -132,7 +108,7 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
 
       setPending(false);
     },
-    [pending, pathname, state.assumptions, model, occupancyHint, classSizeHint, calcSnapshot]
+    [pending, pathname, finance]
   );
 
   useEffect(() => {
@@ -143,22 +119,7 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
 
   const handleClear = async () => {
     setMessages([]);
-    setOccupancyHint(undefined);
-    setClassSizeHint(undefined);
-    setCalcSnapshot(undefined);
     await clearAskOwnedHistory();
-  };
-
-  const handleApplyWhatIf = (answer: OwnedAnswer) => {
-    if (!answer.whatIfApply) return;
-    updateAssumptions(answer.whatIfApply.patch);
-    setMessages((m) => [
-      ...m,
-      {
-        role: "assistant",
-        content: "Applied to your assumptions. Dependent numbers will update across the model.",
-      },
-    ]);
   };
 
   if (!open) return null;
@@ -182,7 +143,7 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
             <div>
               <h2 className="font-wordmark text-lg tracking-tight text-[#2C2825]">Ask OWNED</h2>
               <p className="mt-0.5 text-xs text-[#6B6560]">
-                Ask about this page, your numbers, or how OWNED works.
+                Read-only answers from your selected working scenario.
               </p>
               <p className="mt-1 flex items-center gap-1 text-[10px] uppercase tracking-wide text-[#A39E98]">
                 <Shield className="h-3 w-3" />
@@ -199,7 +160,7 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
             </button>
           </div>
           <p className="mt-2 text-[11px] text-[#A39E98]">
-            Answers based on your OWNED model and guide. Your data is not sent anywhere.
+            New answers use the corrected working scenario. Older saved answers may use a previous model; they are history, not current forecasts.
           </p>
         </header>
 
@@ -208,7 +169,7 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
             <div className="space-y-3">
               <p className="text-xs text-[#6B6560]">Suggested for {page.title}:</p>
               <div className="flex flex-wrap gap-2">
-                {page.suggestedQuestions.map((q) => (
+                {['How do buyers differ from active customers?', 'How do packs and cash work?', 'What is the capacity limit?'].map((q) => (
                   <button
                     key={q}
                     type="button"
@@ -261,15 +222,7 @@ export function AskOwnedPanel({ open, onOpenChange }: AskOwnedPanelProps) {
                   </div>
                 )}
 
-                {msg.answer?.whatIfApply && (
-                  <button
-                    type="button"
-                    onClick={() => handleApplyWhatIf(msg.answer!)}
-                    className="mt-3 rounded-lg bg-[#2C2825] px-3 py-1.5 text-xs font-medium text-[#FAF8F5] hover:bg-[#3d3834]"
-                  >
-                    {msg.answer.whatIfApply.label}
-                  </button>
-                )}
+
               </div>
             ))}
             {pending && (

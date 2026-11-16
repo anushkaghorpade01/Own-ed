@@ -1,4 +1,6 @@
 "use client";
+import {getRecoveryCopy,recoveryBackup} from "@/lib/data/local/recovery";
+import {mergeFinanceHistory,financeMergeCounts} from '@/lib/finance/current/merge';
 
 /* eslint-disable react-hooks/set-state-in-effect -- Existing state synchronization; requires a separate behavioral refactor. */
 
@@ -27,6 +29,7 @@ export default function DataSettingsPage() {
   const importRef = useRef<HTMLInputElement>(null);
   const fsSupported = supportsFileSystemAccess();
 
+  async function exportOriginal(){try{const copy=await getRecoveryCopy();if(!copy){setMessage('No pre-update recovery copy is present in this browser. Current backup remains available.');return;}const backup=recoveryBackup(copy);if(backup)downloadJsonBackup(backup,'OWN-original-before-cohort-update.json');else{const blob=new Blob([JSON.stringify(copy,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='OWN-original-storage-recovery.json';a.click();URL.revokeObjectURL(url);}setMessage('First state seen by this update downloaded, including legacy app/financial raw strings. Existing asset blobs are not included in this records-only copy. The recovery copy survives the in-app Clear local data action; clearing site storage in the browser can still erase it.');}catch(e){setMessage(String(e));}}
   async function refreshGoogleStatus() {
     try {
       const res = await fetch("/api/auth/google/status");
@@ -91,10 +94,18 @@ export default function DataSettingsPage() {
         await persistenceService.replaceFromPayload({
           ...state,
           ...imported,
+          currentFinance: mergeFinanceHistory(state.currentFinance,imported.currentFinance),
+          productConcepts: [...new Map([...imported.productConcepts,...state.productConcepts].map(r=>[r.id,r])).values()],
+          programmingItems: [...new Map([...imported.programmingItems,...state.programmingItems].map(r=>[r.id,r])).values()],
+          studios: [...new Map([...imported.studios,...state.studios].map(r=>[r.id,r])).values()],
+          brandItems: [...new Map([...imported.brandItems,...state.brandItems].map(r=>[r.id,r])).values()],
+          spaceImages: state.spaceImages,
+          libraryItems: [...new Map([...imported.libraryItems,...state.libraryItems].map(r=>[r.id,r])).values()],
+          snapshots: [...new Map([...imported.snapshots,...state.snapshots].map(r=>[r.id,r])).values()],
           scenarios: [...state.scenarios, ...imported.scenarios],
           decisions: [...state.decisions, ...imported.decisions],
         });
-        setMessage("Backup merged — reload to see all changes");
+        const counts=financeMergeCounts(state.currentFinance,imported.currentFinance);setMessage(`Financial records added: ${counts.added}; same-month / same-ID conflicts skipped: ${counts.skipped}. Backup merged. Current financial baseline, existing same-month actuals and same-ID history, and Space records were preserved. Nonconflicting financial history was added. Reload to see merged records.`);
       }
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Import failed");
@@ -106,7 +117,7 @@ export default function DataSettingsPage() {
   async function handleClearBrowserData() {
     if (
       !window.confirm(
-        "This removes Own-ed's local browser database from this device. Files in your connected folder are not deleted. Continue?"
+        "This removes current Own-ed records and uploaded files from this browser. The first-state records-only recovery copy stays, but contains no uploaded file binaries. Files in a connected folder are not deleted. A retained legacy localStorage fallback may be restored on reload. Export a backup before continuing. Continue?"
       )
     ) {
       return;
@@ -121,7 +132,7 @@ export default function DataSettingsPage() {
     <div>
       <SectionHeader
         title="Data & Backups"
-        description="Own-ed saves locally on this device. Google and folder sync are optional."
+        description="Current financial plan, actuals and snapshots are included with your workspace in local backups. Google and folder sync are optional."
       />
 
       {message && (
@@ -161,6 +172,7 @@ export default function DataSettingsPage() {
               <Button variant="outline" size="sm" onClick={handleExport} disabled={!!busy}>
                 Export backup
               </Button>
+              <Button variant="outline" onClick={exportOriginal}>Export first saved state seen by this update</Button>
               <Button
                 variant="outline"
                 size="sm"
