@@ -2,18 +2,15 @@
 
 import { useMemo } from "react";
 import { useApp } from "@/lib/store/app-store";
-import { runFinanceModel } from "@/lib/finance";
-import { formatINR, formatPercent } from "@/lib/format/currency";
+import {correctionState} from "@/lib/finance/current/selected";
+import { useTeacherFirstFinance } from "@/lib/store/teacher-first-store";
+import { formatINR } from "@/lib/format/currency";
 import {
   MetricCard,
   MetricGrid,
   PageSection,
   SectionHeader,
-  SampleStatusChip,
-  BusinessInsightCard,
 } from "@/components/shared/metric-card";
-import { SetupCompleteness } from "@/components/setup/setup-completeness";
-import { explainOwnerCompensation } from "@/lib/finance/business-insights";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -28,100 +25,20 @@ const statusColors = {
 
 export default function HomePage() {
   const { state } = useApp();
-  const model = useMemo(() => runFinanceModel(state.assumptions), [state.assumptions]);
+  const {finance} = useTeacherFirstFinance();
+  const selected=useMemo(()=>correctionState(finance),[finance]);
+  const month=selected.result?.rows[finance.selection.month-1];
 
   const openDecisions = state.decisions.filter((d) => d.status !== "reversed").length;
   const openQuestions = state.questions.filter((q) => q.status === "open");
-  const ownerCompInsight = explainOwnerCompensation(model);
 
   return (
     <div>
       <SectionHeader title="Your Dashboard" />
-      <SampleStatusChip />
-
-      {ownerCompInsight && (
-        <PageSection spacing="default">
-          <BusinessInsightCard {...ownerCompInsight} />
-        </PageSection>
-      )}
-
-      <PageSection spacing="default">
-        <SetupCompleteness showCompleteLink />
-      </PageSection>
-
+      <PageSection spacing="default"><div className="rounded-xl border border-[#E8E2D9] bg-white p-4 text-sm"><p className="font-semibold">Working financial forecast</p><p className="mt-2">{selected.reason}</p>{selected.result&&!selected.result.capacityStatus.passesCoarseMonthlyPlanning&&<p className="mt-2 text-red-800 font-semibold">Demand exceeds planning capacity. Financial outputs are not an attainable forecast.</p>}<div className="flex gap-4 mt-3"><Link href="/math/workbench" className="underline">Scenario settings</Link><Link href="/math/scenarios" className="underline">Full financial plan</Link></div></div></PageSection>
       <MetricGrid className="page-section-major">
-        <MetricCard
-          label="Launch investment"
-          value={formatINR(model.summary.launchInvestment)}
-          subtitle="Non-recoverable capex + working capital"
-          href="/math/assumptions"
-          definition="Non-recoverable setup capex plus working capital required before opening. Edit line items under Assumptions → Setup investment."
-          whyItMatters="This is the cash you need to commit before the studio generates revenue."
-        />
-        <MetricCard
-          label="Base-case monthly revenue"
-          value={formatINR(model.summary.monthlyRevenue)}
-          subtitle="Net sales (ex-GST)"
-          href="/math/pl"
-          trace={model.revenue.traces.groupClass}
-        />
-        <MetricCard
-          label="Monthly operating profit"
-          value={formatINR(model.pl.ebitda)}
-          subtitle="EBITDA at current occupancy"
-          href="/math/pl"
-          trace={model.pl.traces.ebitda}
-        />
-        <MetricCard
-          label="Break-even occupancy"
-          value={formatPercent(model.summary.breakEvenOccupancyPct)}
-          subtitle="Contribution break-even"
-          href="/math/break-even"
-          trace={model.breakEven.contributionBreakEven.trace}
-          definition="The percentage of available reformer spots that need to be occupied for contribution margin to cover fixed operating costs (rent, salaries, etc.). This is lower than EBITDA break-even — see Break-even page for all four metrics."
-          whyItMatters="Tells you how full the studio needs to be before fixed costs are covered by class contribution — not the same as EBITDA break-even or cash break-even."
-        />
-        <MetricCard
-          label="Investment payback"
-          value={
-            model.payback.paybackNotReached
-              ? "Not reached (36mo)"
-              : `Month ${model.payback.paybackMonth}`
-          }
-          subtitle="Cumulative operating cash (earned-revenue timing)"
-          href="/math/payback"
-          trace={model.payback.trace}
-        />
-        <MetricCard label="Reformers" value={String(model.summary.reformers)} href="/math/assumptions" size="compact" />
-        <MetricCard
-          label="Weekly classes"
-          value={model.summary.weeklyClasses.toFixed(0)}
-          href="/math/capacity"
-          size="compact"
-        />
-        <MetricCard
-          label="Projected utilisation"
-          value={formatPercent(model.summary.utilisationPct)}
-          href="/math/capacity"
-          size="compact"
-        />
-        <MetricCard
-          label="Studios researched"
-          value={String(state.studios.length)}
-          href="/studios"
-          size="compact"
-        />
-        <MetricCard label="Open decisions" value={String(openDecisions)} href="/" size="compact" />
-        <MetricCard
-          label="Target opening"
-          value={
-            state.assumptions.targetOpeningDate
-              ? format(new Date(state.assumptions.targetOpeningDate), "d MMM yyyy")
-              : "Not set"
-          }
-          href="/math/assumptions"
-          size="compact"
-        />
+        {month&&<><MetricCard label="Monthly sales excluding GST" value={formatINR(month.netSales)} subtitle={`Working scenario M${month.month}`} href="/math/pl"/><MetricCard label="Monthly profit proxy" value={formatINR(month.netProfit)} subtitle="Sale-basis, after founder pay" href="/math/pl"/><MetricCard label="Closing cash + FD" value={formatINR(month.cash)} subtitle={month.breach?'Below cash policy floor':'Above cash policy floor'} href="/math/cash-flow"/><MetricCard label="Monthly pack buyers" value={month.packBuyers.toFixed(1)} subtitle={`${month.averageActivePackHolders.toFixed(1)} average valid-pack holders`} href="/math/sales-target"/></>}
+        <MetricCard label="Studios researched" value={String(state.studios.length)} href="/studios" size="compact"/><MetricCard label="Open decisions" value={String(openDecisions)} href="/" size="compact"/>
       </MetricGrid>
 
       <div className="page-section-major grid gap-[var(--space-grid-gap)] lg:grid-cols-2">
@@ -225,16 +142,8 @@ export default function HomePage() {
         </Card>
       </div>
 
-      {model.validationErrors.length > 0 && (
-        <div className="mt-[var(--space-6)] rounded-lg border border-[#E8C4C4] bg-[#FCEAEA] px-[var(--space-4)] py-[var(--space-3)]">
-          <p className="text-body font-medium text-[#8B3A3A]">Validation warnings</p>
-          <ul className="text-caption mt-1 list-inside list-disc text-[#8B3A3A]">
-            {model.validationErrors.map((e, i) => (
-              <li key={i}>{e.message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {month?.breach&&<div className="mt-6 rounded-lg border border-[#E8C4C4] bg-[#FCEAEA] p-4 text-sm text-[#8B3A3A]"><p>M{month.month} closing cash is below the cash policy floor. This is a funding risk, not spare cash to distribute.</p></div>}
+
     </div>
   );
 }

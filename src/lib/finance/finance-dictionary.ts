@@ -63,7 +63,7 @@ export const DICTIONARY_CATEGORIES: Record<
   },
 };
 
-export const FINANCE_DICTIONARY: DictionaryEntry[] = [
+const EARLIER_DICTIONARY: DictionaryEntry[] = [
   {
     term: "Net sales (ex-GST)",
     aliases: ["Net price", "Net sales price", "Canonical price"],
@@ -417,6 +417,34 @@ export const FINANCE_DICTIONARY: DictionaryEntry[] = [
     definition:
       "Physical capacity minus expected occupied capacity — open spots credit-holders could potentially book.",
   },
+];
+
+const CURRENT_DEFINITIONS:Record<string,string>={
+ 'Net sales (ex-GST)':'Sales from actual modeled pack purchases plus explicitly supplied paid separate bookings, excluding output GST. Not the same as earned service value.',
+ 'Customer pays (incl. GST)':'Net purchase price plus configured output GST. The tax rate is a comparison input, not verified statutory advice.',
+ 'Service demand mix':'The current8/16pack mix is a NEW-customer split. Monthly purchases and delivered visits can have different proportions. Separate paid drop-ins and privates are explicit inputs.',
+ 'Expected redemption':'No fixed redemption haircut is assumed in the corrected model. Desired use, expiry, churn and renewal delay determine credits attended or left. Member no-shows are unknown, not silently zero measured facts.',
+ 'Breakage':'Unused credits that naturally expire. No forced10%credits are withheld from usability in the corrected engine. Sale, earned service value and obligations remain separate.',
+ 'Safe Pack Sales status':'No safe-sales guarantee is made. Monthly capacity screens flag planning breaches; passing them does not establish that returning customers fit their preferred slots.',
+ 'Private session':'A separately paid one-to-one booking. Explicit paid and attended counts drive receipt and visit costs. Spare private slots do not automatically sell.',
+ 'Standing Spot':'Optional reserved recurring-slot concept. Unit-economics tests do not activate it in the corrected working forecast or imply committed customer demand.',
+ 'Standby':'Optional last-minute empty-seat concept. Unit-economics tests do not activate revenue or establish incremental customers; cannibalisation and terms remain unresolved.',
+ 'Payback month':'For each cash-flow view, the first month cumulative dated receipts recover that view\'s initial outflow. Partner/founder payback uses distributions only; salary and terminal asset values are not added.',
+ 'Scenario / Base Case':'A captured set of explicit customer, renewal, paid-demand and operating assumptions. Base is a comparison case, not a guaranteed midpoint or validated forecast.',
+ 'Optimise target profit':'A full-redemption contribution threshold plus explicit acquisition what-if. Not a claimed global optimizer, buyer quota or physically executable plan.',
+ 'Committed monthly revenue (Standing)':'An optional product concept, not included or guaranteed revenue in the current working forecast.',
+ 'Net sales / credit':'Purchase price divided by pack credits. It is a purchase-value ratio, not fresh revenue every time a prepaid session is attended.',
+ 'Weighted net sales / occupied spot':'A unit-economics ratio only. The corrected forecast derives pack receipts from owned customer purchases, not occupied spots times weighted revenue.',
+ 'Eligible capacity (pack safety)':'A coarse capacity screen within a validity window. Without customer time preferences, existing bookings and no-shows it cannot prove slots are available.',
+ 'Planning net profit':'Sale-basis net sales less operating costs and comparison tax, plus separately shown FD interest and less depreciation. It is not statutory accrual profit.',
+ 'Uncommitted remaining capacity':'Theoretical spare seats are not sales and do not prove preferred-slot availability for pack holders.'
+};
+export const FINANCE_DICTIONARY:DictionaryEntry[]=[...EARLIER_DICTIONARY.map(e=>CURRENT_DEFINITIONS[e.term]?{...e,definition:CURRENT_DEFINITIONS[e.term],example:undefined,formula:undefined,notTheSameAs:undefined}:e),
+ {term:'Monthly pack buyers',category:'products',aliases:['fresh payers','buyers'],definition:'Expected distinct customers buying at least one pack in a month. Multiple purchases by one cohort do not create additional buyers. Summed monthly buyers are not annual unique people.'},
+ {term:'Valid-pack holders',category:'products',aliases:['active holders','valid customers'],definition:'Expected retained customers currently entitled to service from unexpired remaining credits. A valid16pack customer can attend without buying again this month.'},
+ {term:'Retained customers between packs',category:'planning',aliases:['renewal gap','lapsed'],definition:'Customers not permanently churned but temporarily without a valid pack while awaiting the explicitly assumed renewal date. Not NEW acquisition.'},
+ {term:'Service-earned revenue',category:'profit',definition:'Value recognized as owned credits are attended, forfeited or naturally expire, plus eligible separate service receipts. Different timing from purchase cash; never added on top of sales again.'},
+ {term:'Capacity-infeasible scenario',category:'capacity',definition:'Demand exceeds a configured planning screen. Its unconstrained financial outputs are diagnostics, not an attainable operating forecast.'}
 ];
 
 /** @deprecated Use FINANCE_DICTIONARY — kept for existing imports */

@@ -1,6 +1,7 @@
 /**
  * Client-side backup export/import — no server or Google required.
  */
+import { validateFinance } from "@/lib/finance/current/plan";
 import type { LocalDbPayload, OwnedBackupV1 } from "../types";
 import { appStateToPayload, payloadToAppState } from "./app-state-bridge";
 import type { AppState } from "@/lib/store/app-state";
@@ -31,6 +32,7 @@ export async function exportOwnedBackup(state: AppState): Promise<OwnedBackupV1>
     appVersion: "0.1.0",
     data: payload.normalized,
     assetMetadata,
+    extensions: payload.extensions,
   };
 }
 
@@ -58,7 +60,7 @@ export function backupToAppState(backup: OwnedBackupV1): AppState {
   const payload: LocalDbPayload = {
     schemaVersion: 1,
     normalized: backup.data,
-    extensions: {
+    extensions: backup.extensions ?? {
       productConcepts: [],
       programmingItems: [],
       brandItems: [],
@@ -81,6 +83,7 @@ export function backupToAppState(backup: OwnedBackupV1): AppState {
     },
     savedAt: backup.exportedAt,
   };
+  if(payload.normalized.currentFinance) validateFinance(payload.normalized.currentFinance);
   return payloadToAppState(payload);
 }
 

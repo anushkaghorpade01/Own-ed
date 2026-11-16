@@ -1,0 +1,8 @@
+import {describe,it,expect} from 'vitest';
+import {solveTimedAdmissions} from './admission-solver';
+describe('temporal admission feasibility, not forced sales',()=>{
+ it('does not fill temporary gaps with customers whose return would overbook',()=>{const r=solveTimedAdmissions({existingActive:[8,8,10],existingBookings:[8,8,10],targetActive:[10,10,10],activeLimit:[10,10,10],bookingLimit:[10,10,10],candidates:[{id:'new',startDay:0,active:[1,1,1],bookings:[1,1,1]}]});expect(r.starts[0].newCustomers).toBe(0);expect(r.starts[0].capacityLimited).toBe(true);expect(r.unmetTargetDays).toBe(2);expect(r.feasible).toBe(true);});
+ it('counts existing returns first and says when new starts unnecessary',()=>{const r=solveTimedAdmissions({existingActive:[10,10],existingBookings:[10,10],targetActive:[10,10],activeLimit:[10,10],bookingLimit:[10,10],candidates:[{id:'new',startDay:0,active:[1,1],bookings:[1,1]}]});expect(r.starts[0].targetAlreadyCovered).toBe(true);expect(r.starts[0].newCustomers).toBe(0);});
+ it('permits new starts only within every future capacity dimension',()=>{const r=solveTimedAdmissions({existingActive:[8,8],existingBookings:[8,9],targetActive:[10,10],activeLimit:[10,10],bookingLimit:[10,10],candidates:[{id:'new',startDay:0,active:[1,1],bookings:[1,1]}]});expect(r.starts[0].newCustomers).toBe(1);expect(r.daily[1].bookings).toBe(10);expect(r.feasible).toBe(true);});
+ it('flags an existing return-wave breach without pretending new-sales restraint solves it',()=>{const r=solveTimedAdmissions({existingActive:[11],existingBookings:[11],targetActive:[10],activeLimit:[10],bookingLimit:[10],candidates:[]});expect(r.baselineBreaches).toHaveLength(1);expect(r.feasible).toBe(false);});
+});

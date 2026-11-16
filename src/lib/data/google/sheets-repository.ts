@@ -1,3 +1,4 @@
+import { CURRENT_ENGINE, validateFinance } from "@/lib/finance/current/plan";
 import type { StructuredDataRepository } from "../repositories";
 import type {
   NormalizedAppData,
@@ -91,6 +92,10 @@ export class GoogleSheetsStructuredDataRepository implements StructuredDataRepos
     session: GoogleTokenSession,
     sheetId: string
   ): Promise<{ data: NormalizedAppData; flags: MigrationFlag[] }> {
+    let currentRows: Record<string,string>[] = [];
+    try { currentRows = await readSheetTab(session,sheetId,"CurrentFinance"); }
+    catch(error){ if(!/Unable to parse range|not found|does not exist/i.test(String(error))) throw error; }
+    const currentFinance = currentRows.length ? validateFinance(JSON.parse(currentRows.sort((a,b)=>Number(a.id)-Number(b.id)).map(r=>r.chunk_json).join(""))) : undefined;
     const settingsRows = await readSheetTab(session, sheetId, "Settings");
     const assumptionsRows = await readSheetTab(session, sheetId, "Assumptions");
     const productRows = await readSheetTab(session, sheetId, "Products");
@@ -194,6 +199,7 @@ export class GoogleSheetsStructuredDataRepository implements StructuredDataRepos
 
     return {
       data: {
+        currentFinance,
         settings,
         assumptions: assumptionsRecord,
         products,
@@ -380,6 +386,11 @@ export class GoogleSheetsStructuredDataRepository implements StructuredDataRepos
     await bootstrapSpreadsheetTabs(session, sheetId);
     const now = new Date().toISOString();
 
+    if(data.currentFinance){
+      const json=JSON.stringify(validateFinance(data.currentFinance));
+      const chunks=json.match(/[\s\S]{1,40000}/g)??[];
+      await replaceSheetTabData(session,sheetId,"CurrentFinance",chunks.map((chunk,i)=>rowFromRecord("CurrentFinance",{id:String(i),chunk_json:chunk,engine_version:CURRENT_ENGINE,updated_at:now})));
+    }
     data.settings.lastSyncAt = now;
     data.settings.updatedAt = now;
     data.settings.connectedSheetId = sheetId;

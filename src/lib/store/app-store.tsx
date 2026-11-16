@@ -1,6 +1,8 @@
 "use client";
+import {undoFinance} from "@/lib/finance/current/undo";
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, type ReactNode } from "react";
+import { initialFinance, parse, validateFinance, type FinanceData } from "@/lib/finance/current/plan";
 import type { AppState } from "./app-state";
 import {
   ENGINE_VERSION,
@@ -82,6 +84,7 @@ const defaultState = defaultAppState;
 
 interface AppContextValue {
   state: AppState;
+  updateCurrentFinance: (finance: FinanceData, trackUndo?: boolean) => void;
   updateAssumptions: (updates: Partial<FinanceAssumptions>, options?: { trackUndo?: boolean }) => void;
   setAssumptions: (assumptions: FinanceAssumptions) => void;
   addDecision: (decision: Decision) => void;
@@ -137,6 +140,7 @@ interface AppContextValue {
   lastSaved: string | null;
   saveStatus: LocalSaveStatus;
   persistenceStats: LocalPersistenceStats | null;
+  loadError: string | null;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -147,6 +151,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<LocalSaveStatus>("idle");
   const [persistenceStats, setPersistenceStats] = useState<LocalPersistenceStats | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const writeBlocked = useRef<string | null>("Workspace is still loading.");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -162,20 +168,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
           isBaseCase: s.isBaseCase ?? false,
           archived: s.archived ?? false,
         }));
-        setState({
+        let currentFinance = loaded.currentFinance;
+        if (!currentFinance) {
+          currentFinance = initialFinance();
+          const raw = localStorage.getItem("owned:teacher-first:v1");
+          if (raw) { try { currentFinance.plan = parse(raw); } catch { throw new Error("Previous current-finance plan could not be read. Original storage has been preserved; no defaults will overwrite it."); } }
+        }
+        validateFinance(currentFinance);
+        const migratedState = {
           ...loaded,
+          currentFinance,
           assumptions,
           scenarios,
-          decisions: stripLegacySampleContent(loaded.decisions),
-          actions: stripLegacySampleContent(loaded.actions),
-          libraryItems: stripLegacySampleContent(loaded.libraryItems),
-          studios: stripLegacySampleContent(loaded.studios),
+          decisions: loaded.decisions,
+          actions: loaded.actions,
+          libraryItems: loaded.libraryItems,
+          studios: loaded.studios,
           undoStack: [],
-        });
+        };
+        writeBlocked.current = null;
+        setState(migratedState);
+        void persistenceService.saveAppState(migratedState).catch(error => console.error("Migration save failed:",error));
       })
       .catch((error) => {
-        console.error("Failed to load saved app state, using defaults:", error);
-        setState(defaultState());
+        console.error("Saved workspace could not be loaded; writes disabled:", error);
+        writeBlocked.current = "Saved workspace could not be loaded. Editing is disabled to protect the original records. Reload before editing.";
+        setLoadError(writeBlocked.current);
+        setSaveStatus("error");
       })
       .finally(() => setHydrated(true));
   }, []);
@@ -193,7 +212,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback((newState: AppState) => {
+    if (writeBlocked.current) throw new Error(writeBlocked.current);
     if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaveStatus("saving");
     saveTimer.current = setTimeout(() => {
       persistenceService.saveAppState(newState).catch((error) => {
         console.error("Local save failed:", error);
@@ -202,13 +223,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const pushUndo = useCallback((prev: AppState): AppState => {
-    const snapshot = { assumptions: prev.assumptions };
+    const snapshot = { assumptions: prev.assumptions, currentFinance: prev.currentFinance };
     const undoStack = [snapshot, ...prev.undoStack].slice(0, 20);
     return { ...prev, undoStack };
   }, []);
 
   const updateState = useCallback(
     (updater: (prev: AppState) => AppState, trackUndo = false) => {
+      if (writeBlocked.current) throw new Error(writeBlocked.current);
       setState((prev) => {
         const next = updater(trackUndo ? pushUndo(prev) : prev);
         persist(next);
@@ -217,6 +239,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [persist, pushUndo]
   );
+
+  const updateCurrentFinance = useCallback((finance: FinanceData, trackUndo = true) => {
+    validateFinance(finance);
+    updateState(prev => ({...prev,currentFinance:structuredClone(finance)}),trackUndo);
+  },[updateState]);
 
   const updateAssumptions = useCallback(
     (updates: Partial<FinanceAssumptions>, options?: { trackUndo?: boolean }) => {
@@ -855,6 +882,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return {
         ...prev,
         assumptions: last.assumptions ?? prev.assumptions,
+        currentFinance: undoFinance(prev.currentFinance,last.currentFinance),
         undoStack: rest,
       };
     });
@@ -872,6 +900,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         state,
+        updateCurrentFinance,
         updateAssumptions,
         setAssumptions,
         addDecision,
@@ -922,6 +951,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         lastSaved,
         saveStatus,
         persistenceStats,
+        loadError,
       }}
     >
       {children}

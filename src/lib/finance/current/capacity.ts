@@ -1,0 +1,11 @@
+export const FIXED_SLOTS=['Morning group1','Morning group2','Evening group1','Evening group2'] as const;
+/** The four groups are all intended popular times. No midday groups are added.
+ * A slot means the same daily class position across six operating days.
+ * No customer preference split is guessed when the profile is unknown. */
+export function checkFixedTimetable(x:{memberBookingsBySlot:number[]|null;dropBookingsBySlot:number[]|null;privateBookings:number|null;planningFill:number;memberSeatShare:number}){
+ for(const n of [x.planningFill,x.memberSeatShare])if(!Number.isFinite(n)||n<0||n>1)throw new Error('Capacity shares must be between0and1.');
+ const validate=(a:number[]|null)=>{if(a!==null&&(a.length!==4||a.some(n=>!Number.isFinite(n)||n<0)))throw new Error('Supply four nonnegative weekly booking counts.');};validate(x.memberBookingsBySlot);validate(x.dropBookingsBySlot);if(x.privateBookings!==null&&(!Number.isFinite(x.privateBookings)||x.privateBookings<0))throw new Error('Invalid private demand.');
+ const rawSeatsPerSlot=6*6,plannedSeatsPerSlot=rawSeatsPerSlot*x.planningFill;
+ const slots=FIXED_SLOTS.map((name,i)=>{const members=x.memberBookingsBySlot?.[i]??null,drops=x.dropBookingsBySlot?.[i]??null;const plannedMemberSeats=plannedSeatsPerSlot*x.memberSeatShare;return {name,rawWeeklySeats:rawSeatsPerSlot,plannedWeeklySeats:plannedSeatsPerSlot,plannedMemberSeats,memberBookings:members,dropBookings:drops,totalBookings:members===null||drops===null?null:members+drops,memberShareBreach:members===null?null:members>plannedMemberSeats+1e-8,planningBreach:members===null||drops===null?null:members+drops>plannedSeatsPerSlot+1e-8,physicalBreach:members===null||drops===null?null:members+drops>rawSeatsPerSlot+1e-8};});
+ return {schedule:'Six days: two morning groups, two evening groups, two private slots between. No additional classes.',slots,groupWeeklyPhysicalSeats:144,privateWeeklySlots:12,privateBreach:x.privateBookings===null?null:x.privateBookings>12+1e-8,verifiable:slots.every(s=>s.totalBookings!==null)&&x.privateBookings!==null,capacityNotice:'Bookings include no-shows that hold seats. Attendance alone cannot establish availability. Weekly slot totals cannot prove a specific day or preferred-time booking fits.'};
+}

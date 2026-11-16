@@ -1,2 +1,2 @@
-import { OwnLivePage } from "@/components/finance/own-live";
-export default function Page(){return <OwnLivePage initialView="Sensitivity" title="Break-even Sensitivities"/>;}
+import {CurrentTools} from '@/components/finance/current-tools';
+export default function Page(){return <CurrentTools initialTool="Break-even"/>;}

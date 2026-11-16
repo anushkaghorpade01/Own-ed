@@ -1,4 +1,5 @@
-import { google, sheets_v4 } from "googleapis";
+import {sheets_v4} from "googleapis/build/src/apis/sheets/v4";
+import {drive_v3} from "googleapis/build/src/apis/drive/v3";
 import { ALL_TAB_NAMES, SHEET_TABS, SPREADSHEET_TITLE, type SheetTabName } from "../tabs";
 import type { GoogleTokenSession } from "./session";
 import { authClientFromSession } from "./oauth";
@@ -7,7 +8,7 @@ export async function findOrCreateSpreadsheet(
   session: GoogleTokenSession
 ): Promise<string> {
   const auth = authClientFromSession(session);
-  const drive = google.drive({ version: "v3", auth });
+  const drive = new drive_v3.Drive({auth});
 
   const existing = await drive.files.list({
     q: `name='${SPREADSHEET_TITLE}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
@@ -37,7 +38,7 @@ export async function findOrCreateDriveFolder(
   folderName = "Own-ed"
 ): Promise<string> {
   const auth = authClientFromSession(session);
-  const drive = google.drive({ version: "v3", auth });
+  const drive = new drive_v3.Drive({auth});
 
   const existing = await drive.files.list({
     q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
@@ -77,7 +78,7 @@ export async function bootstrapSpreadsheetTabs(
   spreadsheetId: string
 ): Promise<void> {
   const auth = authClientFromSession(session);
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = new sheets_v4.Sheets({auth});
 
   const meta = await sheets.spreadsheets.get({ spreadsheetId });
   const existing = new Set(
@@ -121,7 +122,7 @@ export async function readSheetTab(
   tabName: SheetTabName
 ): Promise<Record<string, string>[]> {
   const auth = authClientFromSession(session);
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = new sheets_v4.Sheets({auth});
   const headers = SHEET_TABS[tabName];
 
   const res = await sheets.spreadsheets.values.get({
@@ -149,7 +150,7 @@ export async function appendSheetRows(
 ): Promise<void> {
   if (rows.length === 0) return;
   const auth = authClientFromSession(session);
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = new sheets_v4.Sheets({auth});
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: `${tabName}!A:A`,
@@ -166,7 +167,7 @@ export async function replaceSheetTabData(
   rows: string[][]
 ): Promise<void> {
   const auth = authClientFromSession(session);
-  const sheets = google.sheets({ version: "v4", auth });
+  const sheets = new sheets_v4.Sheets({auth});
   const headers = SHEET_TABS[tabName];
 
   await sheets.spreadsheets.values.clear({

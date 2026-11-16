@@ -144,6 +144,7 @@ export async function mirrorPayloadToFolder(payload: LocalDbPayload): Promise<vo
     appVersion: "0.1.0",
     data: normalized,
     assetMetadata: normalized.assets,
+    extensions: payload.extensions,
   };
   const backupJson = JSON.stringify(backup, null, 2);
   const date = new Date().toISOString().slice(0, 10);

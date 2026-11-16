@@ -19,6 +19,7 @@ import type {
 } from "@/lib/finance/schemas";
 
 export interface AppState {
+  currentFinance?: import("@/lib/finance/current/plan").FinanceData;
   assumptions: FinanceAssumptions;
   decisions: Decision[];
   questions: OpenQuestion[];

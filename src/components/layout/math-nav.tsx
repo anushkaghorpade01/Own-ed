@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 
 const MATH_NAV = [
@@ -9,11 +9,12 @@ const MATH_NAV = [
     group: "Plan",
     items: [
       { href: "/math", label: "Overview" },
+      { href: "/math/workbench", label: "Scenario settings" },
       { href: "/math/assumptions", label: "Assumptions" },
-      { href: "/math/own-plan", label: "OWN Operating Plan" },
       { href: "/math/scenarios", label: "Scenario Analysis" },
       { href: "/math/sales-target", label: "Sales & Client Target" },
       { href: "/math/optimise", label: "Optimise" },
+      { href: "/math/calculators", label: "Calculators" },
     ],
   },
   {
@@ -38,6 +39,7 @@ const MATH_NAV = [
   {
     group: "Track",
     items: [
+      { href: "/math/funnel", label: "Sales funnel" },
       { href: "/math/actuals", label: "Actuals" },
       { href: "/math/snapshots", label: "Snapshots" },
     ],
@@ -45,27 +47,11 @@ const MATH_NAV = [
 ];
 
 export function MathNav({ compact }: { compact?: boolean }) {
-  const pathname = usePathname();
+  const pathname = usePathname();const router=useRouter();
 
   if (compact) {
-    return (
-      <nav className="flex flex-wrap gap-1 border-b border-[var(--border-subtle)] pb-2">
-        {MATH_NAV.flatMap((g) => g.items).map(({ href, label }) => (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "rounded-md px-2 py-1 text-caption font-medium",
-              pathname === href || (href !== "/math" && pathname.startsWith(href))
-                ? "bg-[var(--surface-muted)] text-[var(--text-primary)]"
-                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            )}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
-    );
+    const items=MATH_NAV.flatMap(g=>g.items);const selected=items.find(i=>i.href===pathname)?.href??items.find(i=>i.href!=='/math'&&pathname.startsWith(i.href))?.href??'/math';
+    return <label className="flex items-center justify-between gap-3 border-b border-[#E8E2D9] pb-3 text-xs text-[#6B6560]">Math workspace<select aria-label="Math workspace page" value={selected} onChange={e=>router.push(e.target.value)} className="max-w-[65%] rounded-lg border border-[#E0DAD2] bg-white px-3 py-2 text-[#2C2825]">{MATH_NAV.map(g=><optgroup key={g.group} label={g.group}>{g.items.map(i=><option key={i.href} value={i.href}>{i.label}</option>)}</optgroup>)}</select></label>;
   }
 
   return (

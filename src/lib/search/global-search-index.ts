@@ -1,11 +1,5 @@
 import { searchGuide } from "@/lib/guide/search";
 import { searchDictionary } from "@/lib/finance/finance-dictionary";
-import {
-  CAPEX_FIELDS,
-  DEPOSIT_FIELDS,
-  FINANCING_FIELDS,
-  TAX_FIELDS,
-} from "@/lib/finance/assumption-fields";
 import type { AppState } from "@/lib/store/app-state";
 
 export type GlobalSearchCategory =
@@ -38,6 +32,7 @@ interface PageEntry {
 /** Every navigable page + synonyms founders might search */
 const APP_PAGES: PageEntry[] = [
   { title: "Home", href: "/", group: "Workspace", keywords: ["dashboard", "overview", "home"] },
+  { title: "Working scenario settings", href:"/math/workbench", group:"Math",keywords:["renewal","buyers","working forecast","new acquisition"] },
   { title: "Math overview", href: "/math", group: "Math", keywords: ["math", "model", "finance"] },
   {
     title: "Assumptions",
@@ -196,18 +191,15 @@ const APP_PAGES: PageEntry[] = [
   { title: "Data & backups", href: "/settings/data", group: "Settings", keywords: ["backup", "export", "import", "data", "save"] },
 ];
 
-const ASSUMPTION_FIELDS: Array<{ label: string; keywords?: string[] }> = [
-  { label: "Booked occupancy", keywords: ["occupancy", "booked", "utilisation"] },
-  { label: "Attended occupancy", keywords: ["attended", "no-show", "noshow"] },
-  { label: "Reformers", keywords: ["reformers", "equipment"] },
-  { label: "Max group class size", keywords: ["class size", "group size"] },
-  { label: "Rent", keywords: ["rent"] },
-  { label: "Owner instructor salary", keywords: ["owner salary", "instructor salary"] },
-  { label: "Income tax rate", keywords: ["tax", "income tax"] },
-  ...CAPEX_FIELDS.map((f) => ({ label: f.label, keywords: [f.label.toLowerCase(), f.key] })),
-  ...FINANCING_FIELDS.map((f) => ({ label: f.label, keywords: [f.label.toLowerCase()] })),
-  ...DEPOSIT_FIELDS.map((f) => ({ label: f.label, keywords: [f.label.toLowerCase(), "deposit"] })),
-  ...TAX_FIELDS.map((f) => ({ label: f.label, keywords: [f.label.toLowerCase()] })),
+const ASSUMPTION_FIELDS=[
+ {label:'Pack purchase prices and validity',keywords:['8-pack','16-pack','price','expiry','pack8','pack16']},
+ {label:'Rent',keywords:['rent','lease']},
+ {label:'Founder pay and staffing',keywords:['salary','founder','junior','intern','reception']},
+ {label:'Permanent churn and NEW customer input',keywords:['churn','new customers','acquisition','sales']},
+ {label:'Renewal delay and separate paid demand',keywords:['renewal','delay','buyers','drop-in','private']},
+ {label:'Cash floor, locked deposit and funding',keywords:['deposit','funding','cash','buffer']},
+ {label:'Comparison GST, tax and FD interest',keywords:['tax','gst','fd','interest']},
+ {label:'Pack mix, use frequency and seasonality',keywords:['mix','frequency','seasonality','attendance']}
 ];
 
 function normalize(q: string): string {
@@ -325,7 +317,7 @@ export function searchGlobal(query: string, state: AppState): GlobalSearchResult
         id: `scenario:${s.id}`,
         category: "Scenario",
         title: s.name,
-        subtitle: s.description || "Scenario",
+        subtitle: "Historical earlier-model scenario, not a corrected forecast",
         href: "/math/scenarios",
         score,
       });

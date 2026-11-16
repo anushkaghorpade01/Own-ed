@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { useApp } from "@/lib/store/app-store";
 import { SectionHeader, SampleBanner } from "@/components/shared/metric-card";
@@ -48,6 +49,7 @@ export default function ProgrammingPage() {
         }
       />
       <SampleBanner />
+      <p className="mb-4 rounded-lg border p-3 text-sm">Class-library records do not create sales or extra timetable capacity. The current financial plan uses6reformers,24group classes and12private slots/week. <Link href="/math/capacity" className="underline">Check financial capacity</Link> or <Link href="/math/access-products" className="underline">review pack products</Link>. Standing Spot/Standby remain optional tests, not active forecast revenue.</p>
 
       {state.programmingItems.length === 0 ? (
         <div className="card-surface py-16 text-center">

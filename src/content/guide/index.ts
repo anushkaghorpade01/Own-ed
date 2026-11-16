@@ -10,13 +10,14 @@ import {
 } from "./using-owned";
 import { exportFinancialModelSection } from "./service-mix-sales-plan";
 
+import {currentGuide} from "./current";
 export const GUIDE_GROUPS: GuideGroup[] = [
   { category: "Getting Started", sections: gettingStartedSections },
   { category: "Math", sections: [profitViewsSection, serviceMixVsSalesPlanSection, ...mathSections] },
   { category: "Workspace", sections: workspaceSections },
   { category: "Using Own-ed", sections: [...usingOwnedSections, exportFinancialModelSection] },
   { category: "Troubleshooting", sections: troubleshootingSections },
-];
+].map(g=>({...g,sections:g.sections.map(currentGuide)})) as GuideGroup[];
 
 /** Flat list — single source of truth for index and search */
 export const ALL_GUIDE_SECTIONS: GuideSection[] = GUIDE_GROUPS.flatMap(

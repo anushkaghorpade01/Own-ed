@@ -1,17 +1,9 @@
 "use client";
-import { useMemo, useState, useSyncExternalStore, useRef } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { runPrimaryModel, type PrimaryOptions } from '@/lib/finance/own-primary';
 import { aggregate, sumMonths, type ModelInputs, type Month } from '@/lib/finance/own-live';
 import './own-live.css';
-const KEY='owned:teacher-first:v1';
-type Plan={version:1;shared:PrimaryOptions;cases:Record<'target'|'base'|'conservative',PrimaryOptions>};
-const INITIAL:Plan={version:1,shared:{},cases:{target:{},base:{},conservative:{}}};
-let cachedRaw:string|null|undefined;let cached:Plan=INITIAL;
-function snapshot(){try{const raw=localStorage.getItem(KEY);if(raw===cachedRaw)return cached;cachedRaw=raw;cached=raw?parse(raw):INITIAL;return cached;}catch{return INITIAL;}}
-const listeners=new Set<()=>void>();
-function subscribe(fn:()=>void){listeners.add(fn);window.addEventListener('storage',fn);return()=>{listeners.delete(fn);window.removeEventListener('storage',fn);};}
-function parse(raw:string):Plan{const p=JSON.parse(raw);if(p.version!==1||!p.shared||!p.cases||!['target','base','conservative'].every(k=>p.cases[k]))throw new Error('Not a teacher-first plan export.');for(const k of ['target','base','conservative'] as const)runPrimaryModel({...p.shared,...p.cases[k],inputOverrides:{...p.shared.inputOverrides,...p.cases[k].inputOverrides},caseName:k});return p;}
-function save(plan:Plan){parse(JSON.stringify(plan));localStorage.setItem(KEY,JSON.stringify(plan));listeners.forEach(fn=>fn());}
+import { INITIAL, type Plan, parse, useTeacherFirstFinance } from "@/lib/store/teacher-first-store";
 const n=(v:number,d=1)=>new Intl.NumberFormat('en-IN',{maximumFractionDigits:d}).format(v);
 const money=(v:number)=>`₹${n(v/1e5,2)}L`;
 const pct=(v:number)=>`${n(v*100)}%`;
@@ -23,10 +15,10 @@ const ECONOMIC:[keyof ModelInputs,string][]=[['funding','Funding including both 
 const MONTH_ROWS:[keyof Month,string][]=[['pack8Sales','8-pack sales'],['pack16Sales','16-pack sales'],['dropSales','Drop-ins delivered'],['privateSales','Privates delivered'],['netSales','Net sales, excluding GST'],['earnedRevenue','Service-earned sales including expired credits'],['deferred','Unserved prepaid service value, closing'],['gstCollected','GST collected'],['gstPaid','GST remitted'],['grossReceipts','Gross receipts including GST'],['fixed','Fixed operating costs, including founder pay'],['groupPayroll','Junior/intern payroll (already in fixed)'],['variable','Variable operating costs'],['opex','Total operating costs'],['ebitda','EBITDA, sale basis'],['depreciation','Depreciation'],['fdInterest','FD interest'],['tax','Comparison tax'],['netProfit','Net profit proxy'],['distributions','Total distributions'],['partner','His payout'],['founder','Her payout'],['cash','Closing operating cash + FD'],['buffer','Required cash floor']];
 function download(name:string,body:string,type='application/json'){const a=document.createElement('a');const url=URL.createObjectURL(new Blob([body],{type}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 export function OwnPrimaryPage({initialView='Overview',title='Scenario Analysis'}:{initialView?:string;title?:string}){
- const plan=useSyncExternalStore(subscribe,snapshot,()=>INITIAL);const [tab,setTab]=useState<Tab>(TABS.includes(initialView as Tab)?initialView as Tab:'Overview');const [focus,setFocus]=useState<'target'|'base'|'conservative'>('target');const [period,setPeriod]=useState(1);const [notice,setNotice]=useState('');const file=useRef<HTMLInputElement>(null);
+ const {finance,setFinance}=useTeacherFirstFinance();const plan=finance.plan;const [tab,setTab]=useState<Tab>(TABS.includes(initialView as Tab)?initialView as Tab:'Overview');const focus=finance.selection.caseName;const period=finance.selection.month;const setFocus=(caseName:typeof focus)=>setFinance({...finance,selection:{...finance.selection,caseName}},false);const setPeriod=(month:number)=>setFinance({...finance,selection:{...finance.selection,month}},false);const [notice,setNotice]=useState('');const file=useRef<HTMLInputElement>(null);
  const all=useMemo(()=>Object.fromEntries((['target','base','conservative'] as const).map(k=>[k,runPrimaryModel({...plan.shared,...plan.cases[k],inputOverrides:{...plan.shared.inputOverrides,...plan.cases[k].inputOverrides},caseName:k})])) as Record<typeof focus,ReturnType<typeof runPrimaryModel>>,[plan]);
  const p=all[focus],r=p.result,m=r.months[period-1],x=p.inputs;const years=Array.from({length:6},(_,i)=>aggregate(r.months.slice(i*12,(i+1)*12)));const halves=Array.from({length:12},(_,i)=>aggregate(r.months.slice(i*6,(i+1)*6)));
- function commit(next:Plan){save(next);setNotice('Saved on this browser. All views recalculated.');}
+ function commit(next:Plan){setFinance({...finance,plan:next});setNotice('Saved in the current app plan. All views recalculated.');}
  function shared(key:keyof PrimaryOptions,v:unknown){commit({...plan,shared:{...plan.shared,[key]:v}});}
  function economic(key:keyof ModelInputs,v:unknown){commit({...plan,shared:{...plan.shared,inputOverrides:{...plan.shared.inputOverrides,[key]:v}}});}
  function demand(key:keyof PrimaryOptions,v:unknown){commit({...plan,cases:{...plan.cases,[focus]:{...plan.cases[focus],[key]:v}}});}
@@ -34,7 +26,7 @@ export function OwnPrimaryPage({initialView='Overview',title='Scenario Analysis'
  const founderRecovery=r.months.find(mm=>sumMonths(r.months.slice(0,mm.month),'founder')>=(plan.shared.founderCapital??1e6)-1e-6)?.month;
  const periods=(blocks:typeof years)=>blocks.map((a,i)=>[`${blocks.length===6?'Y'+(i+1):'M'+a.from+'-'+a.to}`,n(a.members,2),money(a.netSales),money(a.opex),money(a.ebitda),money(a.netProfit),money(a.partner),money(a.founder),money(a.cash)]);
  return <div className="own-live">
- <div className="own-topline"><span className="own-chip">Teacher-first · current financial model</span><span>{current?'Current agreed baseline':'Your edited plan'} · separate browser storage · no legacy data overwritten</span></div>
+ <div className="own-caution"><strong>Revenue assumptions under review.</strong> Pack repurchases, breakage and separate drop-in/private demand are not yet validated. Do not rely on displayed profit or returns for an investment decision.</div><div className="own-topline"><span className="own-chip">Teacher-first · current financial model</span><span>{current?'Current agreed baseline':'Your edited plan'} · shared with Home, current calculators and backups · historical data preserved</span></div>
  <header className="own-heading"><div><h1>{title}</h1><p>Six reformers. Twenty-four group classes and twelve private slots per week. One monthly engine for membership, P&L, cash and partner payouts.</p></div><div className="own-actions"><button onClick={()=>download('OWN-teacher-first-plan.json',JSON.stringify(plan,null,2))}>Export editable plan</button><button onClick={()=>file.current?.click()}>Import plan</button><button onClick={()=>{if(window.confirm('Reset teacher-first assumptions only? Other app data stays unchanged.')){commit(INITIAL);setNotice('Current agreed baseline restored.');}}}>Reset to agreed baseline</button><button onClick={()=>{const keys=Object.keys(m) as (keyof Month)[];const q=(v:unknown)=>`"${String(v).replaceAll('"','""')}"`;download(`OWN-${focus}-72-months.csv`,[keys.join(','),...r.months.map(row=>keys.map(k=>q(row[k])).join(','))].join('\r\n'),'text/csv');}}>Download monthly CSV</button><input hidden ref={file} type="file" accept=".json,application/json" aria-label="Import teacher-first plan" onChange={async e=>{try{if(e.target.files?.[0])commit(parse(await e.target.files[0].text()));}catch(err){setNotice(`Import rejected; previous plan unchanged. ${String(err)}`);}e.target.value='';}}/></div></header>
  <div className="own-caution"><strong>Planning forecast, not verified returns.</strong> Target: 30 members by M12, 40 by M24, hold through M36, 50 by M48; 8% monthly churn with every replacement sold. Conservative: actual gross sales 2/month in Y1, 3 in Y2, 4 thereafter; 9% churn. Base remains a proposed different ramp, not a ranked midpoint. Personal remuneration tax is excluded. Opening calendar is a placeholder, not a committed opening date.</div>
  {notice&&<p role="status" className="own-caution">{notice}</p>}

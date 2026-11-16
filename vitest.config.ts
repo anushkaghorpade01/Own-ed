@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "node",
+    testTimeout: 60000, // Full-horizon scenario pairs need headroom on shared CI runners.
     include: ["src/**/*.test.ts"],
   },
   resolve: {

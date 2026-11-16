@@ -274,6 +274,7 @@ export function migrateLegacyAppState(legacy: LegacyAppState): {
 
   return {
     data: {
+      currentFinance: legacy.currentFinance,
       settings,
       assumptions: assumptionsRecord,
       products: normalizedProducts,
@@ -331,6 +332,7 @@ export function denormalizeToLegacyShape(data: NormalizedAppData): LegacyAppStat
   }
 
   return {
+    currentFinance: data.currentFinance,
     assumptions,
     decisions: data.decisions,
     questions: data.openQuestions.map((q) => ({

@@ -1,11 +1,12 @@
-import { google } from "googleapis";
+import {OAuth2Client} from "google-auth-library";
+import {oauth2_v2} from "googleapis/build/src/apis/oauth2/v2";
 import { getGoogleOAuthConfig, GOOGLE_OAUTH_SCOPES } from "./config";
 import type { GoogleTokenSession } from "./session";
 
 export function createOAuth2Client() {
   const config = getGoogleOAuthConfig();
   if (!config) throw new Error("Google OAuth not configured");
-  return new google.auth.OAuth2(
+  return new OAuth2Client(
     config.clientId,
     config.clientSecret,
     config.redirectUri
@@ -49,7 +50,7 @@ export function authClientFromSession(session: GoogleTokenSession) {
 export async function getUserEmail(accessToken: string): Promise<string | undefined> {
   const client = createOAuth2Client();
   client.setCredentials({ access_token: accessToken });
-  const oauth2 = google.oauth2({ version: "v2", auth: client });
+  const oauth2 = new oauth2_v2.Oauth2({auth:client});
   const { data } = await oauth2.userinfo.get();
   return data.email ?? undefined;
 }

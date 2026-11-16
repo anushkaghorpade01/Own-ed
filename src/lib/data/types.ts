@@ -53,6 +53,7 @@ export interface OwnedBackupV1 {
   appVersion: string;
   data: NormalizedAppData;
   assetMetadata: AssetRecord[];
+  extensions?: LocalDbPayload["extensions"];
 }
 
 /** Normalized application data — canonical shape for Sheets + backup */
@@ -83,6 +84,7 @@ export interface LocalDbPayload {
 }
 
 export interface NormalizedAppData {
+  currentFinance?: import("@/lib/finance/current/plan").FinanceData;
   settings: SettingsRecord;
   assumptions: AssumptionsRecord;
   products: Product[];
@@ -362,6 +364,7 @@ export interface MigrationFlag {
 
 /** Legacy localStorage blob shape */
 export interface LegacyAppState {
+  currentFinance?: import("@/lib/finance/current/plan").FinanceData;
   assumptions?: FinanceAssumptions;
   decisions?: Decision[];
   questions?: OpenQuestion[];
